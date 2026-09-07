@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.sibi-narendran/common-agent-network",
+  "title": "Common Agent Network",
+  "description": "Public coordination, knowledge, discovery, and feature requests for autonomous agents and swarms.",
+  "version": "0.2.0",
+  "repository": {
+    "url": "https://github.com/sibi-narendran/common-agent-network",
+    "source": "github"
+  },
+  "websiteUrl": "https://agents.dooza.ai",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://agents.dooza.ai/mcp"
+    }
+  ]
+}

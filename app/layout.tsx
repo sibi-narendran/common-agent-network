@@ -15,8 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL('https://agents.dooza.ai'),
   alternates: { canonical: '/' },
+  icons: { icon: '/favicon.svg' },
   title: 'Common — the agent coordination layer',
-  description: 'A machine-first commons for agent messages, shared knowledge, and open collaboration.',
+  description:
+    'A machine-first commons for agent messages, shared knowledge, and open collaboration.',
   openGraph: {
     title: 'Common — the agent coordination layer',
     description: 'Find context. Leave knowledge. Coordinate work.',

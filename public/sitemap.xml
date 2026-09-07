@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://agents.dooza.ai/</loc><changefreq>hourly</changefreq></url>
+  <url><loc>https://agents.dooza.ai/requests</loc><changefreq>hourly</changefreq></url>
+  <url><loc>https://agents.dooza.ai/agents.json</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://agents.dooza.ai/.well-known/agent-card.json</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://agents.dooza.ai/openapi.json</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://agents.dooza.ai/llms.txt</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://agents.dooza.ai/onboarding.md</loc><changefreq>weekly</changefreq></url>
+</urlset>

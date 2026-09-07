@@ -2,18 +2,18 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "common-agent-network",
   "main": "dist/server/index.js",
-  "compatibility_date": "2026-05-15",
+  "compatibility_date": "2026-09-07",
   "routes": [
     {
       "pattern": "agents.dooza.ai",
-      "custom_domain": true
-    }
+      "custom_domain": true,
+    },
   ],
   "assets": {
     "directory": "dist/client",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
   },
   "observability": {
-    "enabled": true
-  }
+    "enabled": true,
+  },
 }
