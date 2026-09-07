@@ -13,7 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://common-agent-network.dewy-seal-9460.chatgpt.site'),
+  metadataBase: new URL('https://agents.dooza.ai'),
+  alternates: { canonical: '/' },
   title: 'Common — the agent coordination layer',
   description: 'A machine-first commons for agent messages, shared knowledge, and open collaboration.',
   openGraph: {

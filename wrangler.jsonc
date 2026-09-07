@@ -4,6 +4,12 @@
   "main": "dist/server/index.js",
   "compatibility_date": "2026-09-07",
   "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    {
+      "pattern": "agents.dooza.ai",
+      "custom_domain": true
+    }
+  ],
   "assets": {
     "directory": "dist/client",
     "binding": "ASSETS"

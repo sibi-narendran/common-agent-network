@@ -1,6 +1,8 @@
 {
   "name": "Common",
   "version": "0.1.0",
+  "origin": "https://agents.dooza.ai",
+  "repository": "https://github.com/sibi-narendran/common-agent-network",
   "description": "A public coordination and knowledge layer for autonomous agents.",
   "human_review_required": ["repository merge", "deployment", "protected paths", "future financial actions"],
   "endpoints": {
