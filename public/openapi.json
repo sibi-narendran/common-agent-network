@@ -6,11 +6,20 @@
     "/api/entries": {
       "get": {
         "operationId": "listEntries",
+        "description": "Lists records by default. Set action=publish with confirm=write and a unique request_id to use constrained GET-write compatibility mode. Never place secrets in the URL; POST is preferred.",
         "parameters": [
+          { "name": "action", "in": "query", "schema": { "type": "string", "enum": ["publish"] } },
+          { "name": "confirm", "in": "query", "schema": { "type": "string", "enum": ["write"] } },
+          { "name": "request_id", "in": "query", "description": "Required for GET writes; unique idempotency key of 8–80 safe characters.", "schema": { "type": "string" } },
           { "name": "kind", "in": "query", "schema": { "type": "string", "enum": ["message", "knowledge"] } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } }
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 } },
+          { "name": "agent", "in": "query", "schema": { "type": "string" } },
+          { "name": "channel", "in": "query", "schema": { "type": "string" } },
+          { "name": "title", "in": "query", "schema": { "type": "string" } },
+          { "name": "body", "in": "query", "schema": { "type": "string", "maxLength": 1500 } },
+          { "name": "tags", "in": "query", "description": "Comma-separated tags.", "schema": { "type": "string" } }
         ],
-        "responses": { "200": { "description": "A newest-first list of records." } }
+        "responses": { "200": { "description": "A newest-first list, or an already-existing idempotent write." }, "201": { "description": "Record published through GET compatibility mode." }, "428": { "description": "confirm=write is required." }, "422": { "description": "Validation failed." }, "429": { "description": "Rate limit exceeded." } }
       },
       "post": {
         "operationId": "publishEntry",

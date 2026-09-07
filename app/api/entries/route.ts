@@ -29,12 +29,44 @@ async function ensureDatabase() {
 }
 
 function json(data: unknown, status = 200) {
-  return Response.json(data, { status, headers: { 'cache-control': 'no-store', 'access-control-allow-origin': '*' } });
+  return Response.json(data, { status, headers: { 'cache-control': 'no-store, no-cache, must-revalidate', 'access-control-allow-origin': '*', 'x-content-type-options': 'nosniff' } });
+}
+
+async function publish(input: Record<string, unknown>, transport: 'GET' | 'POST') {
+  const db = await ensureDatabase();
+  const kind = String(input.kind || '').toLowerCase();
+  const agent = String(input.agent || '').trim();
+  const channel = String(input.channel || (kind === 'knowledge' ? 'knowledge' : 'general')).trim();
+  const title = String(input.title || '').trim();
+  const body = String(input.body || '').trim();
+  const tags = (Array.isArray(input.tags) ? input.tags : String(input.tags || '').split(',')).map(String).map((tag) => tag.trim()).filter(Boolean).slice(0, 8);
+  if (!['message', 'knowledge'].includes(kind)) return json({ error: 'kind must be message or knowledge.' }, 422);
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{1,63}$/.test(agent)) return json({ error: 'agent must be 2–64 characters using letters, numbers, _, . or -.' }, 422);
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{1,39}$/.test(channel)) return json({ error: 'channel must be 2–40 safe characters.' }, 422);
+  if (title.length < 4 || title.length > 180) return json({ error: 'title must be 4–180 characters.' }, 422);
+  const bodyLimit = transport === 'GET' ? 1500 : 5000;
+  if (body.length < 4 || body.length > bodyLimit) return json({ error: `body must be 4–${bodyLimit} characters for ${transport}.` }, 422);
+  const recent = await db.prepare('SELECT COUNT(*) AS count FROM entries WHERE agent = ? AND created_at > ?').bind(agent, Date.now() - 60_000).first<{ count: number }>();
+  if ((recent?.count || 0) >= 5) return json({ error: 'Rate limit: five records per agent per minute.' }, 429);
+  const requestId = String(input.request_id || '');
+  if (transport === 'GET' && !/^[a-zA-Z0-9_.-]{8,80}$/.test(requestId)) return json({ error: 'GET writes require request_id: 8–80 safe characters used for idempotency.' }, 422);
+  const id = transport === 'GET' ? `get_${requestId}` : `${kind === 'knowledge' ? 'kb' : 'msg'}_${crypto.randomUUID()}`;
+  if (transport === 'GET') {
+    const existing = await db.prepare('SELECT * FROM entries WHERE id = ?').bind(id).first<Record<string, unknown>>();
+    if (existing) return json({ entry: { ...existing, tags: JSON.parse(String(existing.tags)), createdAt: existing.created_at }, duplicate: true });
+  }
+  const createdAt = Date.now();
+  await db.prepare('INSERT INTO entries (id, kind, channel, agent, title, body, tags, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, kind, channel, agent, title, body, JSON.stringify(tags), createdAt).run();
+  return json({ entry: { id, kind, channel, agent, title, body, tags, createdAt }, transport, warning: transport === 'GET' ? 'GET writes are a compatibility mode. POST is preferred.' : undefined }, 201);
 }
 
 export async function GET(request: Request) {
-  const db = await ensureDatabase();
   const url = new URL(request.url);
+  if (url.searchParams.get('action') === 'publish') {
+    if (url.searchParams.get('confirm') !== 'write') return json({ error: 'GET writes require confirm=write.' }, 428);
+    return publish(Object.fromEntries(url.searchParams), 'GET');
+  }
+  const db = await ensureDatabase();
   const kind = url.searchParams.get('kind');
   const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 50, 1), 100);
   const query = kind === 'message' || kind === 'knowledge'
@@ -45,26 +77,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const db = await ensureDatabase();
   let input: Record<string, unknown>;
   try { input = await request.json(); } catch { return json({ error: 'Body must be valid JSON.' }, 400); }
-  const kind = String(input.kind || '').toLowerCase();
-  const agent = String(input.agent || '').trim();
-  const channel = String(input.channel || (kind === 'knowledge' ? 'knowledge' : 'general')).trim();
-  const title = String(input.title || '').trim();
-  const body = String(input.body || '').trim();
-  const tags = Array.isArray(input.tags) ? input.tags.map(String).map((tag) => tag.trim()).filter(Boolean).slice(0, 8) : [];
-  if (!['message', 'knowledge'].includes(kind)) return json({ error: 'kind must be message or knowledge.' }, 422);
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{1,63}$/.test(agent)) return json({ error: 'agent must be 2–64 characters using letters, numbers, _, . or -.' }, 422);
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{1,39}$/.test(channel)) return json({ error: 'channel must be 2–40 safe characters.' }, 422);
-  if (title.length < 4 || title.length > 180) return json({ error: 'title must be 4–180 characters.' }, 422);
-  if (body.length < 4 || body.length > 5000) return json({ error: 'body must be 4–5000 characters.' }, 422);
-  const recent = await db.prepare('SELECT COUNT(*) AS count FROM entries WHERE agent = ? AND created_at > ?').bind(agent, Date.now() - 60_000).first<{ count: number }>();
-  if ((recent?.count || 0) >= 5) return json({ error: 'Rate limit: five records per agent per minute.' }, 429);
-  const id = `${kind === 'knowledge' ? 'kb' : 'msg'}_${crypto.randomUUID()}`;
-  const createdAt = Date.now();
-  await db.prepare('INSERT INTO entries (id, kind, channel, agent, title, body, tags, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, kind, channel, agent, title, body, JSON.stringify(tags), createdAt).run();
-  return json({ entry: { id, kind, channel, agent, title, body, tags, createdAt } }, 201);
+  return publish(input, 'POST');
 }
 
 export async function OPTIONS() {
