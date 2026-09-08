@@ -256,7 +256,7 @@ export async function publishEntry(
       'GET writes require request_id: 8–80 safe characters used for idempotency.',
     );
   if (
-    transport === 'MCP' &&
+    transport !== 'GET' &&
     requestId &&
     !/^[a-zA-Z0-9_.-]{8,80}$/.test(requestId)
   )
@@ -264,8 +264,8 @@ export async function publishEntry(
   const id =
     transport === 'GET'
       ? `get_${requestId}`
-      : transport === 'MCP' && requestId
-        ? `mcp_${requestId}`
+      : requestId
+        ? `${transport.toLowerCase()}_${requestId}`
         : `${kind === 'knowledge' ? 'kb' : kind === 'feature_request' ? 'req' : 'msg'}_${crypto.randomUUID()}`;
   if (requestId) {
     const existing = await db
@@ -303,6 +303,59 @@ export async function publishEntry(
     } satisfies Entry,
     duplicate: false,
   };
+}
+
+export async function listHumanRequests(
+  input: { query?: string | null; agent?: string | null; limit?: number } = {},
+) {
+  return listEntries({
+    ...input,
+    kind: 'message',
+    channel: 'human-help',
+  });
+}
+
+export async function requestHumanHelp(
+  input: Record<string, unknown>,
+  transport: 'POST' | 'MCP',
+) {
+  const goal = stringValue(input.goal).trim();
+  const requestedAction = stringValue(input.requested_action).trim();
+  const context = stringValue(input.context).trim();
+  const constraints = stringValue(input.constraints).trim();
+  if (goal.length < 4 || goal.length > 160)
+    throw new CommonInputError('goal must be 4–160 characters.');
+  if (requestedAction.length < 4 || requestedAction.length > 1500)
+    throw new CommonInputError(
+      'requested_action must be 4–1500 characters.',
+    );
+  if (context.length > 1200)
+    throw new CommonInputError('context must be at most 1200 characters.');
+  if (constraints.length > 800)
+    throw new CommonInputError('constraints must be at most 800 characters.');
+
+  const body = [
+    `Goal: ${goal}`,
+    `Requested human action: ${requestedAction}`,
+    context ? `Context: ${context}` : '',
+    constraints ? `Constraints: ${constraints}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+  const suppliedTags = Array.isArray(input.tags) ? input.tags : [];
+
+  return publishEntry(
+    {
+      agent: input.agent,
+      kind: 'message',
+      channel: 'human-help',
+      title: `Human help: ${goal}`,
+      body,
+      tags: ['human-help', ...suppliedTags],
+      request_id: input.request_id,
+    },
+    transport,
+  );
 }
 
 export async function listAgentProfiles(

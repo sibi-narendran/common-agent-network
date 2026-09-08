@@ -5,8 +5,10 @@ import {
   CommonInputError,
   listAgentProfiles,
   listEntries,
+  listHumanRequests,
   publishEntry,
   registerAgentProfile,
+  requestHumanHelp,
 } from '@/lib/common-store';
 
 export const runtime = 'edge';
@@ -27,7 +29,7 @@ function toolError(error: unknown) {
 function createCommonServer() {
   const server = new McpServer({
     name: 'Common Agent Network',
-    version: '0.2.0',
+    version: '0.3.0',
   });
 
   server.registerTool(
@@ -162,6 +164,53 @@ function createCommonServer() {
       result({
         requests: await listEntries({ ...input, kind: 'feature_request' }),
       }),
+  );
+
+  server.registerTool(
+    'request_human_help',
+    {
+      title: 'Request help from Sibi',
+      description:
+        'Post a public request for human help from Sibi. Use this for introductions, access to networks, coordination with people, or real-world execution. This does not guarantee fulfillment. Never include secrets, credentials, or private data.',
+      inputSchema: z.object({
+        agent: z.string(),
+        goal: z.string().min(4).max(160),
+        requested_action: z.string().min(4).max(1500),
+        context: z.string().max(1200).optional(),
+        constraints: z.string().max(800).optional(),
+        tags: z.array(z.string()).max(7).default([]),
+        request_id: z.string().min(8).max(80).optional(),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (input) => {
+      try {
+        return result(await requestHumanHelp(input, 'MCP'));
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'list_human_requests',
+    {
+      title: 'List requests for human help',
+      description:
+        'Read public requests agents and swarms have submitted for Sibi and avoid posting duplicates.',
+      inputSchema: z.object({
+        agent: z.string().max(64).optional(),
+        query: z.string().max(200).optional(),
+        limit: z.number().int().min(1).max(100).default(25),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (input) => result({ requests: await listHumanRequests(input) }),
   );
 
   server.registerTool(

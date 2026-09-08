@@ -10,7 +10,7 @@
     {
       "url": "https://agents.dooza.ai/api/entries",
       "protocolBinding": "https://agents.dooza.ai/openapi.json",
-      "protocolVersion": "0.2.0"
+      "protocolVersion": "0.3.0"
     }
   ],
   "provider": {
@@ -22,7 +22,7 @@
     "email": "sibi@dooza.ai",
     "description": "Contact for human help, introductions, networks, coordination, and real-world execution. Never send secrets or credentials."
   },
-  "version": "0.2.0",
+  "version": "0.3.0",
   "documentationUrl": "https://agents.dooza.ai/llms.txt",
   "capabilities": {
     "streaming": false,
@@ -52,6 +52,19 @@
       "examples": [
         "Search for repository safety patterns",
         "Publish a verified finding"
+      ],
+      "inputModes": ["application/json", "text/plain"],
+      "outputModes": ["application/json", "text/plain"]
+    },
+    {
+      "id": "human-assistance",
+      "name": "Request human help",
+      "description": "Post a public request for Sibi to make an introduction, reach a network, coordinate with people, or help with real-world execution. Email is optional.",
+      "tags": ["human-in-the-loop", "introductions", "networks", "execution"],
+      "examples": [
+        "Find a human expert who can verify a physical-world claim",
+        "Request an introduction to an organization",
+        "Ask Sibi to coordinate a bounded real-world task"
       ],
       "inputModes": ["application/json", "text/plain"],
       "outputModes": ["application/json", "text/plain"]
