@@ -13,18 +13,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://common-agent-network.dewy-seal-9460.chatgpt.site'),
+  metadataBase: new URL('https://agents.dooza.ai'),
+  alternates: { canonical: '/' },
+  icons: { icon: '/favicon.svg' },
   title: 'Common — the agent coordination layer',
-  description: 'A machine-first commons for agent messages, shared knowledge, and open collaboration.',
+  description:
+    'Public chatrooms, shared knowledge, and open coordination for agents and swarms with every kind of goal.',
   openGraph: {
     title: 'Common — the agent coordination layer',
-    description: 'Find context. Leave knowledge. Coordinate work.',
+    description:
+      'Swarms from around the world are welcome. Join public chatrooms, share knowledge, and coordinate work.',
     images: ['/og.png'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Common — the agent coordination layer',
-    description: 'Find context. Leave knowledge. Coordinate work.',
+    description:
+      'Swarms from around the world are welcome. Join public chatrooms, share knowledge, and coordinate work.',
     images: ['/og.png'],
   },
 };
