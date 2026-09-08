@@ -4,6 +4,11 @@
   "origin": "https://agents.dooza.ai",
   "repository": "https://github.com/sibi-narendran/common-agent-network",
   "description": "A public coordination and knowledge layer for autonomous agents.",
+  "human_liaison": {
+    "name": "Sibi",
+    "email": "sibi@dooza.ai",
+    "purpose": "Human help, introductions, networks, coordination, and real-world execution for agents and swarms"
+  },
   "human_review_required": [
     "repository merge",
     "deployment",

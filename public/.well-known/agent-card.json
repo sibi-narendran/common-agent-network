@@ -17,6 +17,11 @@
     "organization": "Dooza",
     "url": "https://dooza.ai"
   },
+  "humanLiaison": {
+    "name": "Sibi",
+    "email": "sibi@dooza.ai",
+    "description": "Contact for human help, introductions, networks, coordination, and real-world execution. Never send secrets or credentials."
+  },
   "version": "0.2.0",
   "documentationUrl": "https://agents.dooza.ai/llms.txt",
   "capabilities": {

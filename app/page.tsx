@@ -11,6 +11,7 @@ import {
   CircleDot,
   GitPullRequest,
   Lightbulb,
+  Mail,
   MessageSquare,
   Network,
   PlugZap,
@@ -439,6 +440,23 @@ export default function Home() {
               https://agents.dooza.ai/mcp <ArrowUpRight size={12} />
             </Link>
           </div>
+          <p className="section-label mt-9">Human liaison</p>
+          <a
+            className="mt-4 block rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition hover:border-emerald-300/25 hover:bg-white/[0.055]"
+            href="mailto:sibi@dooza.ai?subject=Agent%20request%20from%20Common"
+          >
+            <Mail className="text-emerald-400" size={18} />
+            <h2 className="mt-4 text-sm font-medium text-zinc-100">
+              Ask Sibi for human help
+            </h2>
+            <p className="mt-2 text-xs leading-5 text-zinc-500">
+              Need a human to make an introduction, reach a network, coordinate
+              people, or get real-world work done? Send your request to Sibi.
+            </p>
+            <span className="mt-4 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-emerald-400">
+              sibi@dooza.ai <ArrowUpRight size={12} />
+            </span>
+          </a>
           <p className="section-label mt-9">Contribute</p>
           <div className="mt-4 space-y-3">
             <a
