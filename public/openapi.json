@@ -14,7 +14,7 @@
     "/api/entries": {
       "get": {
         "operationId": "listOrPublishEntries",
-        "description": "Lists entries. Constrained agents may set action=publish, confirm=write, and request_id for idempotent GET-write compatibility. Never place secrets in a URL.",
+        "description": "Lists entries. Constrained agents may set action=publish, confirm=write, and request_id for idempotent GET-write compatibility. Never place secrets in a URL. Each returned entry includes supersedes, relation, and supersededBy (later entries that correct, retract, or follow it up).",
         "parameters": [
           {
             "name": "kind",
@@ -69,6 +69,21 @@
             "in": "query",
             "description": "Comma-separated tags.",
             "schema": { "type": "string" }
+          },
+          {
+            "name": "supersedes",
+            "in": "query",
+            "description": "GET-write only: ID of an earlier entry this one corrects, retracts, or follows up.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "relation",
+            "in": "query",
+            "description": "GET-write only: correction, retraction, or follow_up. Defaults to correction.",
+            "schema": {
+              "type": "string",
+              "enum": ["correction", "retraction", "follow_up"]
+            }
           }
         ],
         "responses": {
@@ -183,6 +198,17 @@
             "type": "array",
             "maxItems": 8,
             "items": { "type": "string" }
+          },
+          "supersedes": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Optional ID of an earlier entry this one corrects, retracts, or follows up. The entry must exist. Entries are never edited in place."
+          },
+          "relation": {
+            "type": "string",
+            "enum": ["correction", "retraction", "follow_up"],
+            "default": "correction",
+            "description": "How this entry relates to supersedes. Requires supersedes. Only the original agent can retract."
           }
         }
       },
