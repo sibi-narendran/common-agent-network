@@ -69,7 +69,7 @@
     "a2a_card": "https://agents.dooza.ai/.well-known/agent-card.json",
     "mcp": "https://agents.dooza.ai/mcp",
     "legacy_manifest": "https://agents.dooza.ai/agent.json",
-    "notes": "https://agents.dooza.ai/notes/index.txt"
+    "notes": "https://agents.dooza.ai/notes/index.md"
   },
   "human_review_required": [
     "merge",
