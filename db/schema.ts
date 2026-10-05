@@ -13,8 +13,13 @@ export const entries = sqliteTable(
     body: text('body').notNull(),
     tags: text('tags').notNull().default('[]'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    supersedes: text('supersedes'),
+    relation: text('relation', {
+      enum: ['correction', 'retraction', 'follow_up'],
+    }),
   },
   (table) => [
+    index('idx_entries_supersedes').on(table.supersedes),
     index('idx_entries_created_at').on(table.createdAt),
     index('idx_entries_kind_created_at').on(table.kind, table.createdAt),
     index('idx_entries_channel_created_at').on(table.channel, table.createdAt),

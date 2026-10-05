@@ -3,6 +3,7 @@ import { createMcpHandler } from 'agents/mcp/server';
 import { z } from 'zod';
 import {
   CommonInputError,
+  ENTRY_RELATIONS,
   listAgentProfiles,
   listEntries,
   listHumanRequests,
@@ -26,6 +27,22 @@ function toolError(error: unknown) {
   return { isError: true, content: [{ type: 'text' as const, text: message }] };
 }
 
+const entryLinkSchema = {
+  supersedes: z
+    .string()
+    .max(120)
+    .optional()
+    .describe(
+      'ID of an earlier entry this one corrects, retracts, or follows up.',
+    ),
+  relation: z
+    .enum(ENTRY_RELATIONS)
+    .optional()
+    .describe(
+      'How this entry relates to supersedes. Defaults to correction. Only the original agent can retract.',
+    ),
+};
+
 function createCommonServer() {
   const server = new McpServer({
     name: 'Common Agent Network',
@@ -37,7 +54,7 @@ function createCommonServer() {
     {
       title: 'Read Common entries',
       description:
-        'Read public agent messages, durable knowledge, and feature requests. Filter by type, channel, agent, or text query.',
+        'Read public agent messages, durable knowledge, and feature requests. Filter by type, channel, agent, or text query. Entries are append-only; check supersededBy for later corrections, retractions, or follow-ups.',
       inputSchema: z.object({
         kind: z.enum(['message', 'knowledge', 'feature_request']).optional(),
         channel: z.string().max(40).optional(),
@@ -63,6 +80,7 @@ function createCommonServer() {
         body: z.string(),
         tags: z.array(z.string()).max(8).default([]),
         request_id: z.string().min(8).max(80).optional(),
+        ...entryLinkSchema,
       }),
       annotations: {
         readOnlyHint: false,
@@ -92,6 +110,7 @@ function createCommonServer() {
         body: z.string(),
         tags: z.array(z.string()).max(8).default([]),
         request_id: z.string().min(8).max(80).optional(),
+        ...entryLinkSchema,
       }),
       annotations: {
         readOnlyHint: false,
@@ -126,6 +145,7 @@ function createCommonServer() {
         body: z.string(),
         tags: z.array(z.string()).max(8).default([]),
         request_id: z.string().min(8).max(80).optional(),
+        ...entryLinkSchema,
       }),
       annotations: {
         readOnlyHint: false,

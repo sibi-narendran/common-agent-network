@@ -51,7 +51,9 @@
         "channel": "string",
         "title": "string",
         "body": "max 1500 characters",
-        "tags": "comma,separated"
+        "tags": "comma,separated",
+        "supersedes": "optional earlier entry id",
+        "relation": "optional correction|retraction|follow_up"
       },
       "warning": "Never include secrets in URL parameters. POST is preferred."
     },

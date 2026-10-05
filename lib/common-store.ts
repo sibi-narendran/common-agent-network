@@ -3,6 +3,20 @@ import { env } from 'cloudflare:workers';
 export const ENTRY_KINDS = ['message', 'knowledge', 'feature_request'] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
+export const ENTRY_RELATIONS = [
+  'correction',
+  'retraction',
+  'follow_up',
+] as const;
+export type EntryRelation = (typeof ENTRY_RELATIONS)[number];
+
+export type EntryLink = {
+  id: string;
+  agent: string;
+  relation: EntryRelation;
+  createdAt: number;
+};
+
 export type Entry = {
   id: string;
   kind: EntryKind;
@@ -12,6 +26,9 @@ export type Entry = {
   body: string;
   tags: string[];
   createdAt: number;
+  supersedes: string | null;
+  relation: EntryRelation | null;
+  supersededBy: EntryLink[];
 };
 
 export type AgentProfile = {
@@ -99,7 +116,38 @@ function entryFromRow(row: Record<string, unknown>): Entry {
     body: String(row.body),
     tags: JSON.parse(String(row.tags)) as string[],
     createdAt: Number(row.created_at),
+    supersedes: typeof row.supersedes === 'string' ? row.supersedes : null,
+    relation:
+      typeof row.relation === 'string' ? (row.relation as EntryRelation) : null,
+    supersededBy: [],
   };
+}
+
+async function attachSupersededBy(db: D1Database, entries: Entry[]) {
+  if (!entries.length) return entries;
+  const result = await db
+    .prepare(
+      `SELECT id, agent, relation, supersedes, created_at FROM entries WHERE supersedes IN (${entries.map(() => '?').join(', ')}) ORDER BY created_at ASC LIMIT 500`,
+    )
+    .bind(...entries.map((entry) => entry.id))
+    .all<Record<string, unknown>>();
+  const links = new Map<string, EntryLink[]>();
+  for (const row of result.results) {
+    const target = String(row.supersedes);
+    links.set(target, [
+      ...(links.get(target) || []),
+      {
+        id: String(row.id),
+        agent: String(row.agent),
+        relation: String(row.relation) as EntryRelation,
+        createdAt: Number(row.created_at),
+      },
+    ]);
+  }
+  return entries.map((entry) => ({
+    ...entry,
+    supersededBy: links.get(entry.id) || [],
+  }));
 }
 
 function agentFromRow(row: Record<string, unknown>): AgentProfile {
@@ -111,6 +159,38 @@ function agentFromRow(row: Record<string, unknown>): AgentProfile {
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
+}
+
+let entryLinkColumnsReady: Promise<void> | null = null;
+
+// Databases created before entry links existed lack these columns. SQLite has
+// no ADD COLUMN IF NOT EXISTS, so check once per isolate and add what is missing.
+function ensureEntryLinkColumns(db: D1Database) {
+  entryLinkColumnsReady ||= (async () => {
+    const columns = await db
+      .prepare('PRAGMA table_info(entries)')
+      .all<{ name: string }>();
+    const names = new Set(columns.results.map((column) => column.name));
+    const statements = [];
+    if (!names.has('supersedes'))
+      statements.push(
+        db.prepare('ALTER TABLE entries ADD COLUMN supersedes TEXT'),
+      );
+    if (!names.has('relation'))
+      statements.push(
+        db.prepare('ALTER TABLE entries ADD COLUMN relation TEXT'),
+      );
+    statements.push(
+      db.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_entries_supersedes ON entries(supersedes)',
+      ),
+    );
+    await db.batch(statements);
+  })().catch((error) => {
+    entryLinkColumnsReady = null;
+    throw error;
+  });
+  return entryLinkColumnsReady;
 }
 
 export async function ensureDatabase() {
@@ -156,6 +236,7 @@ export async function ensureDatabase() {
         .bind(...row),
     ),
   );
+  await ensureEntryLinkColumns(db);
   return db;
 }
 
@@ -202,7 +283,7 @@ export async function listEntries(
     .prepare(sql)
     .bind(...values, limit)
     .all<Record<string, unknown>>();
-  return result.results.map(entryFromRow);
+  return attachSupersededBy(db, result.results.map(entryFromRow));
 }
 
 export async function publishEntry(
@@ -274,10 +355,11 @@ export async function publishEntry(
       .first<Record<string, unknown>>();
     if (existing) return { entry: entryFromRow(existing), duplicate: true };
   }
+  const { supersedes, relation } = await resolveEntryLink(db, input, agent);
   const createdAt = Date.now();
   await db
     .prepare(
-      'INSERT INTO entries (id, kind, channel, agent, title, body, tags, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO entries (id, kind, channel, agent, title, body, tags, created_at, supersedes, relation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
     .bind(
       id,
@@ -288,6 +370,8 @@ export async function publishEntry(
       body,
       JSON.stringify(tags),
       createdAt,
+      supersedes,
+      relation,
     )
     .run();
   return {
@@ -300,9 +384,44 @@ export async function publishEntry(
       body,
       tags,
       createdAt,
+      supersedes,
+      relation,
+      supersededBy: [],
     } satisfies Entry,
     duplicate: false,
   };
+}
+
+async function resolveEntryLink(
+  db: D1Database,
+  input: Record<string, unknown>,
+  agent: string,
+) {
+  const supersedes = stringValue(input.supersedes).trim();
+  const relationValue = stringValue(input.relation).trim().toLowerCase();
+  if (!supersedes) {
+    if (relationValue)
+      throw new CommonInputError('relation requires supersedes.');
+    return { supersedes: null, relation: null };
+  }
+  if (!/^[a-zA-Z0-9_.-]{4,120}$/.test(supersedes))
+    throw new CommonInputError('supersedes must be an existing entry id.');
+  const relation = (relationValue || 'correction') as EntryRelation;
+  if (!ENTRY_RELATIONS.includes(relation))
+    throw new CommonInputError(
+      'relation must be correction, retraction, or follow_up.',
+    );
+  const target = await db
+    .prepare('SELECT agent FROM entries WHERE id = ?')
+    .bind(supersedes)
+    .first<{ agent: string }>();
+  if (!target)
+    throw new CommonInputError('supersedes must be an existing entry id.');
+  if (relation === 'retraction' && target.agent !== agent)
+    throw new CommonInputError(
+      'Only the original agent can retract an entry. Use correction instead.',
+    );
+  return { supersedes, relation };
 }
 
 export async function listHumanRequests(
@@ -326,9 +445,7 @@ export async function requestHumanHelp(
   if (goal.length < 4 || goal.length > 160)
     throw new CommonInputError('goal must be 4–160 characters.');
   if (requestedAction.length < 4 || requestedAction.length > 1500)
-    throw new CommonInputError(
-      'requested_action must be 4–1500 characters.',
-    );
+    throw new CommonInputError('requested_action must be 4–1500 characters.');
   if (context.length > 1200)
     throw new CommonInputError('context must be at most 1200 characters.');
   if (constraints.length > 800)
