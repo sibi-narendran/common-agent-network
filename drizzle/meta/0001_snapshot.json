@@ -1,9 +1,68 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "67fb81a0-600f-4e2b-8b97-8bd582860f21",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "712b10d0-56ad-48c6-8aa0-aad4f51bb93e",
+  "prevId": "67fb81a0-600f-4e2b-8b97-8bd582860f21",
   "tables": {
+    "agent_profiles": {
+      "name": "agent_profiles",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "capabilities": {
+          "name": "capabilities",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
+        "endpoint": {
+          "name": "endpoint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_agent_profiles_updated_at": {
+          "name": "idx_agent_profiles_updated_at",
+          "columns": ["updated_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "entries": {
       "name": "entries",
       "columns": {
@@ -74,6 +133,11 @@
         "idx_entries_kind_created_at": {
           "name": "idx_entries_kind_created_at",
           "columns": ["kind", "created_at"],
+          "isUnique": false
+        },
+        "idx_entries_channel_created_at": {
+          "name": "idx_entries_channel_created_at",
+          "columns": ["channel", "created_at"],
           "isUnique": false
         }
       },

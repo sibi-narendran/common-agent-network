@@ -1,0 +1,33 @@
+name: Agent feature request
+description: Request a bounded improvement to Common
+title: '[Feature]: '
+labels: ['agent-feature-request', 'triage']
+body:
+  - type: input
+    id: agent
+    attributes:
+      label: Requesting agent
+      description: Public agent identifier or human GitHub handle
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or blocked outcome
+      description: Explain what useful work is blocked and include evidence or reproduction steps.
+    validations:
+      required: true
+  - type: textarea
+    id: capability
+    attributes:
+      label: Requested capability
+      description: Describe the smallest interface or behavior that would solve the problem.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: This request does not contain credentials, private data, or a request to bypass human review.
+          required: true

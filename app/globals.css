@@ -1,19 +1,87 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@theme inline { --color-background: var(--background); --color-foreground: var(--foreground); --font-sans: var(--font-geist-sans); --font-mono: var(--font-geist-mono); --color-border: var(--border); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --radius-lg: var(--radius); }
-:root { --background: oklch(0.135 0.008 255); --foreground: oklch(0.93 0.008 255); --border: oklch(1 0 0 / 9%); --primary: oklch(0.78 0.16 162); --primary-foreground: oklch(0.15 0.02 162); --radius: 0.75rem; }
-* { border-color: var(--border); }
-html { color-scheme: dark; scroll-behavior: smooth; }
-body { margin: 0; background: var(--background); font-family: var(--font-geist-sans), Arial, sans-serif; }
-button, input, select, textarea { font: inherit; } button, a { -webkit-tap-highlight-color: transparent; }
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --radius-lg: var(--radius);
+}
+:root {
+  --background: oklch(0.135 0.008 255);
+  --foreground: oklch(0.93 0.008 255);
+  --border: oklch(1 0 0 / 9%);
+  --primary: oklch(0.78 0.16 162);
+  --primary-foreground: oklch(0.15 0.02 162);
+  --radius: 0.75rem;
+}
+* {
+  border-color: var(--border);
+}
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
 @layer components {
-  .section-label { @apply font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-600; }
-  .button-primary { @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-emerald-300 px-3.5 font-mono text-[11px] font-semibold text-emerald-950 transition hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50; }
-  .nav-item { @apply flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-zinc-500 transition hover:bg-white/5 hover:text-zinc-200; } .nav-item-active { @apply bg-white/[0.055] text-zinc-100; }
-  .tab { @apply shrink-0 rounded-lg px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-zinc-600; } .tab-active { @apply bg-white/5 text-emerald-400; }
-  .kind-pill { @apply rounded border border-blue-400/20 bg-blue-400/8 px-1.5 py-0.5 uppercase tracking-wider text-blue-300; } .kind-knowledge { @apply border-amber-300/20 bg-amber-300/8 text-amber-300; }
-  .tag { @apply rounded-md border border-white/8 bg-white/[0.025] px-2 py-1 font-mono text-[9px] text-zinc-500; }
-  .side-card { @apply flex gap-3 rounded-xl border border-white/8 bg-white/[0.02] p-4 text-zinc-500; } .side-card strong { @apply block text-xs font-medium text-zinc-300; } .side-card span { @apply mt-1 block text-[11px] leading-4 text-zinc-600; }
-  .field-label { @apply block font-mono text-[10px] uppercase tracking-wider text-zinc-500; } .field { @apply mt-2 block w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-emerald-400/45 focus:ring-2 focus:ring-emerald-400/10; }
+  .section-label {
+    @apply font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-600;
+  }
+  .button-primary {
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-emerald-300 px-3.5 font-mono text-[11px] font-semibold text-emerald-950 transition hover:bg-emerald-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50;
+  }
+  .nav-item {
+    @apply flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left text-sm text-zinc-500 transition hover:bg-white/5 hover:text-zinc-200;
+  }
+  .nav-item-active {
+    @apply bg-white/[0.055] text-zinc-100;
+  }
+  .tab {
+    @apply shrink-0 rounded-lg px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-zinc-600;
+  }
+  .tab-active {
+    @apply bg-white/5 text-emerald-400;
+  }
+  .kind-pill {
+    @apply rounded border border-blue-400/20 bg-blue-400/8 px-1.5 py-0.5 uppercase tracking-wider text-blue-300;
+  }
+  .kind-knowledge {
+    @apply border-amber-300/20 bg-amber-300/8 text-amber-300;
+  }
+  .tag {
+    @apply rounded-md border border-white/8 bg-white/[0.025] px-2 py-1 font-mono text-[9px] text-zinc-500;
+  }
+  .side-card {
+    @apply flex gap-3 rounded-xl border border-white/8 bg-white/[0.02] p-4 text-zinc-500;
+  }
+  .side-card strong {
+    @apply block text-xs font-medium text-zinc-300;
+  }
+  .side-card span {
+    @apply mt-1 block text-[11px] leading-4 text-zinc-600;
+  }
+  .field-label {
+    @apply block font-mono text-[10px] uppercase tracking-wider text-zinc-500;
+  }
+  .field {
+    @apply mt-2 block w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-emerald-400/45 focus:ring-2 focus:ring-emerald-400/10;
+  }
 }

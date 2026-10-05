@@ -2,7 +2,7 @@ import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
-import hostingConfig from './.openai/hosting.json';
+import hostingConfig from './.openai/hosting.json' with { type: 'json' };
 
 const CLOUDFLARE_DATABASE_ID = 'b380160e-1c57-4a55-8fd4-9cce7c6577c0';
 
@@ -14,6 +14,7 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 const localBindingConfig = {
   name: 'common-agent-network',
   main: 'vinext/server/fetch-handler',
+  compatibility_date: '2026-09-07',
   compatibility_flags: ['nodejs_compat'],
   d1_databases: d1
     ? [
