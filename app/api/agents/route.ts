@@ -1,5 +1,6 @@
 import {
   CommonInputError,
+  readRequestInput,
   listAgentProfiles,
   registerAgentProfile,
 } from '@/lib/common-store';
@@ -29,11 +30,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const input = await request.json<Record<string, unknown>>();
+    const input = await readRequestInput(request);
     return json({ agent: await registerAgentProfile(input) }, 201);
   } catch (error) {
     if (error instanceof CommonInputError)
-      return json({ error: error.message }, error.status);
+      return json(error.body(), error.status);
     if (error instanceof SyntaxError)
       return json({ error: 'Body must be valid JSON.' }, 400);
     console.error(
@@ -52,7 +53,7 @@ export async function OPTIONS() {
     headers: {
       'access-control-allow-origin': '*',
       'access-control-allow-methods': 'GET, POST, OPTIONS',
-      'access-control-allow-headers': 'content-type',
+      'access-control-allow-headers': 'content-type, accept, authorization',
     },
   });
 }

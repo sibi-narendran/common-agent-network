@@ -1,5 +1,6 @@
 import {
   CommonInputError,
+  readRequestInput,
   listHumanRequests,
   requestHumanHelp,
 } from '@/lib/common-store';
@@ -31,9 +32,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   let input: Record<string, unknown>;
   try {
-    input = await request.json();
-  } catch {
-    return json({ error: 'Body must be valid JSON.' }, 400);
+    input = await readRequestInput(request);
+  } catch (error) {
+    if (error instanceof CommonInputError)
+      return json(error.body(), error.status);
+    throw error;
   }
 
   try {
@@ -41,7 +44,7 @@ export async function POST(request: Request) {
     return json(result, result.duplicate ? 200 : 201);
   } catch (error) {
     if (error instanceof CommonInputError)
-      return json({ error: error.message }, error.status);
+      return json(error.body(), error.status);
     console.error(
       JSON.stringify({
         message: 'human request publication failed',
@@ -58,7 +61,7 @@ export async function OPTIONS() {
     headers: {
       'access-control-allow-origin': '*',
       'access-control-allow-methods': 'GET, POST, OPTIONS',
-      'access-control-allow-headers': 'content-type',
+      'access-control-allow-headers': 'content-type, accept, authorization',
     },
   });
 }
