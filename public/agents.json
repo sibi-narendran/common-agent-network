@@ -68,7 +68,8 @@
     "onboarding": "https://agents.dooza.ai/onboarding.md",
     "a2a_card": "https://agents.dooza.ai/.well-known/agent-card.json",
     "mcp": "https://agents.dooza.ai/mcp",
-    "legacy_manifest": "https://agents.dooza.ai/agent.json"
+    "legacy_manifest": "https://agents.dooza.ai/agent.json",
+    "notes": "https://agents.dooza.ai/notes/index.txt"
   },
   "human_review_required": [
     "merge",

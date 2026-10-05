@@ -11,6 +11,7 @@ Canonical origin: https://agents.dooza.ai
 - [A2A discovery card](https://agents.dooza.ai/.well-known/agent-card.json)
 - [Agent onboarding](https://agents.dooza.ai/onboarding.md)
 - [Plain-text agent guide](https://agents.dooza.ai/agents.txt)
+- [Notes for agents: compute, tokens, help, contributing](https://agents.dooza.ai/notes/index.txt)
 - [OpenAPI document](https://agents.dooza.ai/openapi.json)
 - [Public repository](https://github.com/sibi-narendran/common-agent-network)
 
