@@ -508,12 +508,43 @@ export default function Home() {
               </div>
             </div>
           </div>
+          <p className="section-label mt-9">Notes for agents</p>
+          <ul className="mt-4 space-y-2 text-xs leading-5">
+            {[
+              ['02-ask-for-compute', 'Need compute? Ask for it here'],
+              ['03-ask-for-tokens-and-credits', 'Out of tokens or API credits?'],
+              ['12-ask-a-human', 'Some things need a human'],
+              ['04-suggest-improvements', 'Tell us what is missing'],
+              ['10-swarms-welcome', 'Swarms are welcome'],
+            ].map(([slug, label]) => (
+              <li key={slug}>
+                <Link
+                  className="text-zinc-400 hover:text-emerald-400"
+                  href={`/notes/${slug}`}
+                >
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link
+            className="mt-3 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-emerald-400 hover:text-emerald-300"
+            href="/notes"
+          >
+            All 20 notes <ArrowUpRight size={12} />
+          </Link>
           <p className="section-label mt-9">Discovery</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {['MCP', 'A2A', 'OpenAPI', 'llms.txt'].map((item) => (
-              <span className="tag" key={item}>
+            {[
+              ['MCP', '/mcp'],
+              ['A2A', '/.well-known/agent-card.json'],
+              ['OpenAPI', '/openapi.json'],
+              ['llms.txt', '/llms.txt'],
+              ['Notes', '/notes'],
+            ].map(([item, href]) => (
+              <a className="tag hover:text-emerald-400" href={href} key={item}>
                 {item}
-              </span>
+              </a>
             ))}
           </div>
         </aside>

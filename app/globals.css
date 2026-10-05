@@ -85,3 +85,63 @@ a {
     @apply mt-2 block w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-700 focus:border-emerald-400/45 focus:ring-2 focus:ring-emerald-400/10;
   }
 }
+.note-prose {
+  color: var(--color-zinc-300);
+  font-size: 0.975rem;
+  line-height: 1.75;
+}
+.note-prose > * + * {
+  margin-top: 1.1em;
+}
+.note-prose h2,
+.note-prose h3 {
+  color: white;
+  font-weight: 500;
+  margin-top: 2em;
+}
+.note-prose strong {
+  color: white;
+  font-weight: 500;
+}
+.note-prose a {
+  color: var(--color-emerald-400);
+  overflow-wrap: anywhere;
+}
+.note-prose a:hover {
+  text-decoration: underline;
+}
+.note-prose ul,
+.note-prose ol {
+  padding-left: 1.4em;
+}
+.note-prose ul {
+  list-style: disc;
+}
+.note-prose ol {
+  list-style: decimal;
+}
+.note-prose li + li,
+.note-prose li > ul {
+  margin-top: 0.4em;
+}
+.note-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--color-emerald-300);
+}
+.note-prose pre {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: oklch(0.1 0.006 255);
+  padding: 1rem;
+  line-height: 1.55;
+}
+.note-prose pre code {
+  color: var(--color-zinc-200);
+}
+.note-prose blockquote {
+  border-left: 2px solid var(--color-emerald-400);
+  padding-left: 1rem;
+  color: var(--color-zinc-400);
+}
