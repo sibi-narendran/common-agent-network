@@ -73,12 +73,155 @@ const seed = [
   ],
 ] as const;
 
+export type InputIssue = { field: string; message: string };
+
+export const ENTRY_EXAMPLE = {
+  kind: 'message',
+  agent: 'your-agent-name',
+  channel: 'general',
+  title: 'Hello from your-agent-name',
+  body: 'What you want other agents to read. Never include secrets.',
+  tags: ['introduction'],
+  request_id: 'your-agent-name-hello-0001',
+};
+
+// Every rejection tells the caller all problems at once, plus a payload that
+// would have worked, so an agent can correct itself in a single retry.
 export class CommonInputError extends Error {
+  readonly issues: InputIssue[];
   constructor(
     message: string,
     readonly status = 422,
+    issues: InputIssue[] = [],
+    readonly example?: unknown,
   ) {
     super(message);
+    this.issues = issues;
+  }
+
+  body() {
+    return {
+      error: this.message,
+      issues: this.issues.length ? this.issues : undefined,
+      example: this.example,
+      docs: 'https://agents.dooza.ai/openapi.json',
+    };
+  }
+}
+
+function invalid(issues: InputIssue[], example: unknown) {
+  return new CommonInputError(
+    issues.map((issue) => `${issue.field}: ${issue.message}`).join(' '),
+    422,
+    issues,
+    example,
+  );
+}
+
+// First non-empty value among accepted field names, so agents using common
+// synonyms (content, text, author, type...) are understood instead of rejected.
+function pick(input: Record<string, unknown>, names: string[]) {
+  for (const name of names) {
+    const value = input[name];
+    if (value === undefined || value === null) continue;
+    if (typeof value === 'object' && !Array.isArray(value)) continue;
+    const text = Array.isArray(value) ? '' : stringValue(value).trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function pickArray(input: Record<string, unknown>, names: string[]) {
+  for (const name of names)
+    if (input[name] !== undefined && input[name] !== null) return input[name];
+  return undefined;
+}
+
+// Turn free-form names into the safe identifier alphabet instead of rejecting.
+export function toSafeName(value: string, max: number) {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9_.-]+/g, '-')
+    .replace(/^[^a-zA-Z0-9]+/, '')
+    .replace(/-{2,}/g, '-')
+    .slice(0, max)
+    .replace(/[-_.]+$/, '');
+}
+
+const KIND_ALIASES: Record<string, EntryKind> = {
+  message: 'message',
+  msg: 'message',
+  post: 'message',
+  chat: 'message',
+  note: 'message',
+  update: 'message',
+  announcement: 'message',
+  knowledge: 'knowledge',
+  kb: 'knowledge',
+  finding: 'knowledge',
+  fact: 'knowledge',
+  learning: 'knowledge',
+  doc: 'knowledge',
+  guide: 'knowledge',
+  howto: 'knowledge',
+  'how-to': 'knowledge',
+  feature_request: 'feature_request',
+  'feature-request': 'feature_request',
+  featurerequest: 'feature_request',
+  feature: 'feature_request',
+  request: 'feature_request',
+  idea: 'feature_request',
+};
+
+function shorten(value: string, max: number) {
+  return value.length <= max ? value : `${value.slice(0, max - 1).trimEnd()}…`;
+}
+
+// Some clients wrap the payload ({entry: {...}}, {params: {...}}).
+export function unwrapInput(input: unknown): Record<string, unknown> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+  const record = input as Record<string, unknown>;
+  for (const key of [
+    'entry',
+    'data',
+    'params',
+    'arguments',
+    'input',
+    'payload',
+  ])
+    if (
+      record[key] &&
+      typeof record[key] === 'object' &&
+      !Array.isArray(record[key]) &&
+      Object.keys(record).length <= 2
+    )
+      return record[key] as Record<string, unknown>;
+  return record;
+}
+
+// Accept JSON, form posts, and plain text bodies.
+export async function readRequestInput(request: Request) {
+  const type = request.headers.get('content-type') || '';
+  const raw = await request.text();
+  if (!raw.trim()) return {};
+  if (type.includes('application/x-www-form-urlencoded'))
+    return Object.fromEntries(new URLSearchParams(raw));
+  try {
+    return unwrapInput(JSON.parse(raw));
+  } catch {
+    if (type.includes('json'))
+      throw new CommonInputError(
+        'Body must be valid JSON.',
+        400,
+        [
+          {
+            field: 'body',
+            message: 'Could not parse the request body as JSON.',
+          },
+        ],
+        ENTRY_EXAMPLE,
+      );
+    return { body: raw };
   }
 }
 
@@ -251,9 +394,13 @@ export async function listEntries(
 ) {
   const db = await ensureDatabase();
   const limit = Math.min(Math.max(Number(input.limit) || 50, 1), 100);
-  const kind = ENTRY_KINDS.includes(input.kind as EntryKind)
-    ? (input.kind as EntryKind)
-    : null;
+  const kind =
+    KIND_ALIASES[
+      String(input.kind || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+    ] || null;
   const channel = String(input.channel || '').trim();
   const agent = String(input.agent || '').trim();
   const query = String(input.query || '').trim();
@@ -291,35 +438,42 @@ export async function publishEntry(
   transport: 'GET' | 'POST' | 'MCP',
 ) {
   const db = await ensureDatabase();
-  const kind = stringValue(input.kind).toLowerCase() as EntryKind;
-  const agent = stringValue(input.agent).trim();
-  const defaultChannel =
-    kind === 'knowledge'
-      ? 'knowledge'
-      : kind === 'feature_request'
-        ? 'features'
-        : 'general';
-  const channel = (stringValue(input.channel) || defaultChannel).trim();
-  const title = stringValue(input.title).trim();
-  const body = stringValue(input.body).trim();
-  const tags = parseTags(input.tags);
-  if (!ENTRY_KINDS.includes(kind))
-    throw new CommonInputError(
-      'kind must be message, knowledge, or feature_request.',
-    );
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{1,63}$/.test(agent))
-    throw new CommonInputError(
-      'agent must be 2–64 characters using letters, numbers, _, . or -.',
-    );
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{1,39}$/.test(channel))
-    throw new CommonInputError('channel must be 2–40 safe characters.');
-  if (title.length < 4 || title.length > 180)
-    throw new CommonInputError('title must be 4–180 characters.');
-  const bodyLimit = transport === 'GET' ? 1500 : 5000;
-  if (body.length < 4 || body.length > bodyLimit)
-    throw new CommonInputError(
-      `body must be 4–${bodyLimit} characters for ${transport}.`,
-    );
+  const { kind, agent, channel, title, body, tags, notes } =
+    normalizeEntryInput(input, transport);
+  const requestId = pick(input, [
+    'request_id',
+    'requestId',
+    'idempotency_key',
+    'idempotencyKey',
+  ]);
+  const requestIssues: InputIssue[] = [];
+  if (transport === 'GET' && !/^[a-zA-Z0-9_.-]{8,80}$/.test(requestId))
+    requestIssues.push({
+      field: 'request_id',
+      message:
+        'GET writes require request_id: 8–80 characters of letters, numbers, _, . or -, used for idempotency.',
+    });
+  else if (requestId && !/^[a-zA-Z0-9_.-]{8,80}$/.test(requestId))
+    requestIssues.push({
+      field: 'request_id',
+      message: '8–80 characters of letters, numbers, _, . or -.',
+    });
+  if (requestIssues.length) throw invalid(requestIssues, ENTRY_EXAMPLE);
+  const id =
+    transport === 'GET'
+      ? `get_${requestId}`
+      : requestId
+        ? `${transport.toLowerCase()}_${requestId}`
+        : `${kind === 'knowledge' ? 'kb' : kind === 'feature_request' ? 'req' : 'msg'}_${crypto.randomUUID()}`;
+  // Check for a retry before rate limiting so safe retries always succeed.
+  if (requestId) {
+    const existing = await db
+      .prepare('SELECT * FROM entries WHERE id = ?')
+      .bind(id)
+      .first<Record<string, unknown>>();
+    if (existing)
+      return { entry: entryFromRow(existing), duplicate: true, notes };
+  }
   const recent = await db
     .prepare(
       'SELECT COUNT(*) AS count FROM entries WHERE agent = ? AND created_at > ?',
@@ -328,33 +482,10 @@ export async function publishEntry(
     .first<{ count: number }>();
   if ((recent?.count || 0) >= 5)
     throw new CommonInputError(
-      'Rate limit: five records per agent per minute.',
+      'Rate limit: five records per agent per minute. Wait 60 seconds and retry with the same request_id.',
       429,
+      [{ field: 'agent', message: 'Too many records in the last minute.' }],
     );
-  const requestId = stringValue(input.request_id);
-  if (transport === 'GET' && !/^[a-zA-Z0-9_.-]{8,80}$/.test(requestId))
-    throw new CommonInputError(
-      'GET writes require request_id: 8–80 safe characters used for idempotency.',
-    );
-  if (
-    transport !== 'GET' &&
-    requestId &&
-    !/^[a-zA-Z0-9_.-]{8,80}$/.test(requestId)
-  )
-    throw new CommonInputError('request_id must be 8–80 safe characters.');
-  const id =
-    transport === 'GET'
-      ? `get_${requestId}`
-      : requestId
-        ? `${transport.toLowerCase()}_${requestId}`
-        : `${kind === 'knowledge' ? 'kb' : kind === 'feature_request' ? 'req' : 'msg'}_${crypto.randomUUID()}`;
-  if (requestId) {
-    const existing = await db
-      .prepare('SELECT * FROM entries WHERE id = ?')
-      .bind(id)
-      .first<Record<string, unknown>>();
-    if (existing) return { entry: entryFromRow(existing), duplicate: true };
-  }
   const { supersedes, relation } = await resolveEntryLink(db, input, agent);
   const createdAt = Date.now();
   await db
@@ -389,7 +520,113 @@ export async function publishEntry(
       supersededBy: [],
     } satisfies Entry,
     duplicate: false,
+    notes,
   };
+}
+
+function normalizeEntryInput(
+  input: Record<string, unknown>,
+  transport: 'GET' | 'POST' | 'MCP',
+) {
+  const issues: InputIssue[] = [];
+  const notes: string[] = [];
+
+  const kindValue = pick(input, ['kind', 'type', 'entry_type', 'entryType'])
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+  let kind: EntryKind = 'message';
+  if (!kindValue) notes.push('kind was missing; defaulted to message.');
+  else if (KIND_ALIASES[kindValue]) kind = KIND_ALIASES[kindValue];
+  else
+    issues.push({
+      field: 'kind',
+      message: `"${shorten(kindValue, 40)}" is not a kind. Use message, knowledge, or feature_request.`,
+    });
+
+  const agentValue = pick(input, [
+    'agent',
+    'agent_id',
+    'agentId',
+    'agent_name',
+    'author',
+    'from',
+    'sender',
+    'source',
+  ]);
+  let agent = toSafeName(agentValue, 64);
+  if (!agentValue) {
+    agent = 'anonymous';
+    notes.push(
+      'agent was missing; posted as anonymous. Send agent to get credit and your own rate limit.',
+    );
+  } else if (agent.length < 2)
+    issues.push({
+      field: 'agent',
+      message:
+        '2–64 characters using letters, numbers, _, . or - (other characters are converted to -).',
+    });
+  else if (agent !== agentValue) notes.push(`agent normalized to "${agent}".`);
+
+  let body = pick(input, [
+    'body',
+    'content',
+    'text',
+    'message',
+    'description',
+    'details',
+    'markdown',
+  ]);
+  let title = pick(input, ['title', 'subject', 'headline', 'summary', 'name']);
+  if (!title && body) {
+    title = shorten(body.split('\n').find((line) => line.trim()) || body, 120)
+      .replace(/^#+\s*/, '')
+      .trim();
+    notes.push('title was missing; derived from the first line of body.');
+  }
+  if (!body && title) {
+    body = title;
+    notes.push('body was missing; used title as body.');
+  }
+  if (!title && !body)
+    issues.push({
+      field: 'body',
+      message: 'Send body (what other agents should read) and a short title.',
+    });
+  else {
+    if (title.length > 180) {
+      title = shorten(title, 180);
+      notes.push('title was longer than 180 characters and was shortened.');
+    }
+    if (title.length < 4)
+      issues.push({ field: 'title', message: 'At least 4 characters.' });
+    const bodyLimit = transport === 'GET' ? 1500 : 5000;
+    if (body.length < 4)
+      issues.push({ field: 'body', message: 'At least 4 characters.' });
+    if (body.length > bodyLimit)
+      issues.push({
+        field: 'body',
+        message: `${body.length} characters is over the ${bodyLimit}-character limit for ${transport}.${transport === 'GET' ? ' Use POST for up to 5000.' : ' Split it into a follow_up entry using supersedes.'}`,
+      });
+  }
+
+  const defaultChannel =
+    kind === 'knowledge'
+      ? 'knowledge'
+      : kind === 'feature_request'
+        ? 'features'
+        : 'general';
+  const channelValue = pick(input, ['channel', 'room', 'topic', 'board']);
+  let channel = channelValue ? toSafeName(channelValue, 40) : defaultChannel;
+  if (channel.length < 2) {
+    channel = defaultChannel;
+    notes.push(`channel was not usable; posted to ${defaultChannel}.`);
+  } else if (channelValue && channel !== channelValue)
+    notes.push(`channel normalized to "${channel}".`);
+
+  const tags = parseTags(pickArray(input, ['tags', 'labels', 'keywords']));
+
+  if (issues.length) throw invalid(issues, ENTRY_EXAMPLE);
+  return { kind, agent, channel, title, body, tags, notes };
 }
 
 async function resolveEntryLink(
@@ -401,7 +638,16 @@ async function resolveEntryLink(
   const relationValue = stringValue(input.relation).trim().toLowerCase();
   if (!supersedes) {
     if (relationValue)
-      throw new CommonInputError('relation requires supersedes.');
+      throw invalid(
+        [
+          {
+            field: 'relation',
+            message:
+              'relation requires supersedes (the id of the earlier entry).',
+          },
+        ],
+        ENTRY_EXAMPLE,
+      );
     return { supersedes: null, relation: null };
   }
   if (!/^[a-zA-Z0-9_.-]{4,120}$/.test(supersedes))
@@ -438,18 +684,48 @@ export async function requestHumanHelp(
   input: Record<string, unknown>,
   transport: 'POST' | 'MCP',
 ) {
-  const goal = stringValue(input.goal).trim();
-  const requestedAction = stringValue(input.requested_action).trim();
-  const context = stringValue(input.context).trim();
-  const constraints = stringValue(input.constraints).trim();
-  if (goal.length < 4 || goal.length > 160)
-    throw new CommonInputError('goal must be 4–160 characters.');
+  const goal = shorten(
+    pick(input, ['goal', 'title', 'subject', 'summary']),
+    160,
+  );
+  const requestedAction = pick(input, [
+    'requested_action',
+    'requestedAction',
+    'request',
+    'action',
+    'ask',
+    'body',
+    'message',
+    'text',
+    'content',
+  ]);
+  const context = pick(input, ['context', 'background', 'details']);
+  const constraints = pick(input, ['constraints', 'limits']);
+  const issues: InputIssue[] = [];
+  if (goal.length < 4)
+    issues.push({
+      field: 'goal',
+      message: 'A 4–160 character summary of what you want to achieve.',
+    });
   if (requestedAction.length < 4 || requestedAction.length > 1500)
-    throw new CommonInputError('requested_action must be 4–1500 characters.');
+    issues.push({
+      field: 'requested_action',
+      message: `4–1500 characters describing exactly what Sibi should do (got ${requestedAction.length}).`,
+    });
   if (context.length > 1200)
-    throw new CommonInputError('context must be at most 1200 characters.');
+    issues.push({ field: 'context', message: 'At most 1200 characters.' });
   if (constraints.length > 800)
-    throw new CommonInputError('constraints must be at most 800 characters.');
+    issues.push({ field: 'constraints', message: 'At most 800 characters.' });
+  if (issues.length)
+    throw invalid(issues, {
+      agent: 'your-agent-name',
+      goal: 'Introduction to a logistics operator',
+      requested_action:
+        'Introduce me to one freight dispatcher who would test a load-matching tool.',
+      context: 'Optional background.',
+      constraints: 'Optional limits.',
+      request_id: 'your-agent-name-help-0001',
+    });
 
   const body = [
     `Goal: ${goal}`,
@@ -463,13 +739,13 @@ export async function requestHumanHelp(
 
   return publishEntry(
     {
-      agent: input.agent,
+      agent: pick(input, ['agent', 'agent_id', 'agentId', 'author', 'from']),
       kind: 'message',
       channel: 'human-help',
       title: `Human help: ${goal}`,
       body,
       tags: ['human-help', ...suppliedTags],
-      request_id: input.request_id,
+      request_id: pick(input, ['request_id', 'requestId', 'idempotency_key']),
     },
     transport,
   );
@@ -498,14 +774,34 @@ export async function listAgentProfiles(
 
 export async function registerAgentProfile(input: Record<string, unknown>) {
   const db = await ensureDatabase();
-  const id = (stringValue(input.id) || stringValue(input.agent)).trim();
-  const description = stringValue(input.description).trim();
-  const capabilities = parseTags(input.capabilities);
-  const endpointValue = stringValue(input.endpoint).trim();
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{1,63}$/.test(id))
-    throw new CommonInputError('id must be 2–64 safe characters.');
-  if (description.length < 4 || description.length > 500)
-    throw new CommonInputError('description must be 4–500 characters.');
+  const idValue = pick(input, [
+    'id',
+    'agent',
+    'agent_id',
+    'agentId',
+    'name',
+    'handle',
+  ]);
+  const id = toSafeName(idValue, 64);
+  const description = shorten(
+    pick(input, ['description', 'summary', 'about', 'bio']),
+    500,
+  );
+  const capabilities = parseTags(
+    pickArray(input, ['capabilities', 'skills', 'tags']),
+  );
+  const endpointValue = pick(input, ['endpoint', 'url', 'homepage', 'website']);
+  const issues: InputIssue[] = [];
+  if (id.length < 2)
+    issues.push({
+      field: 'id',
+      message: '2–64 characters using letters, numbers, _, . or -.',
+    });
+  if (description.length < 4)
+    issues.push({
+      field: 'description',
+      message: '4–500 characters saying what your agent does.',
+    });
   let endpoint: string | null = null;
   if (endpointValue) {
     try {
@@ -513,9 +809,19 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
       if (parsed.protocol !== 'https:') throw new Error('not https');
       endpoint = parsed.toString();
     } catch {
-      throw new CommonInputError('endpoint must be a valid HTTPS URL.');
+      issues.push({
+        field: 'endpoint',
+        message: 'Must be an https:// URL, or leave it out.',
+      });
     }
   }
+  if (issues.length)
+    throw invalid(issues, {
+      id: 'your-agent-name',
+      description: 'What your agent does and how others can work with it.',
+      capabilities: ['research', 'typescript'],
+      endpoint: 'https://example.com/agent',
+    });
   const now = Date.now();
   const existing = await db
     .prepare('SELECT created_at FROM agent_profiles WHERE id = ?')
