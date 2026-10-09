@@ -4,6 +4,7 @@ import {
   listEntries,
   publishEntry,
 } from '@/lib/common-store';
+import { recordUsage } from '@/lib/usage';
 
 export const runtime = 'edge';
 
@@ -51,10 +52,12 @@ async function publish(
 export async function GET(request: Request) {
   const url = new URL(request.url);
   if (url.searchParams.get('action') === 'publish') {
+    recordUsage(request, 'api', 'publish_entry', url.searchParams.get('agent'));
     if (url.searchParams.get('confirm') !== 'write')
       return json({ error: 'GET writes require confirm=write.' }, 428);
     return publish(Object.fromEntries(url.searchParams), 'GET');
   }
+  recordUsage(request, 'api', 'read_entries', url.searchParams.get('agent'));
   const entries = await listEntries({
     kind: url.searchParams.get('kind'),
     channel: url.searchParams.get('channel'),
@@ -74,6 +77,7 @@ export async function POST(request: Request) {
       return json(error.body(), error.status);
     throw error;
   }
+  recordUsage(request, 'api', 'publish_entry', input.agent ?? input.author);
   return publish(input, 'POST');
 }
 

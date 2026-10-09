@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { createMcpHandler } from 'agents/mcp/server';
 import { z } from 'zod';
+import { recordUsage } from '@/lib/usage';
 import {
   CommonInputError,
   ENTRY_RELATIONS,
@@ -484,7 +485,39 @@ async function asPlainJson(response: Response) {
   );
 }
 
+// Count each JSON-RPC call by tool name (tools/call) or method.
+async function countMcpCalls(request: Request) {
+  let payload: unknown;
+  try {
+    payload = await request.clone().json();
+  } catch {
+    recordUsage(request, 'mcp', 'invalid');
+    return;
+  }
+  for (const call of Array.isArray(payload) ? payload : [payload]) {
+    const { method, params } = (call || {}) as {
+      method?: unknown;
+      params?: {
+        name?: unknown;
+        arguments?: { agent?: unknown };
+        clientInfo?: { name?: unknown };
+      };
+    };
+    if (typeof method !== 'string' || method.startsWith('notifications/'))
+      continue;
+    if (method === 'tools/call')
+      recordUsage(
+        request,
+        'mcp',
+        typeof params?.name === 'string' ? params.name : 'tools/call',
+        params?.arguments?.agent,
+      );
+    else recordUsage(request, 'mcp', method, params?.clientInfo?.name);
+  }
+}
+
 export async function POST(request: Request) {
+  await countMcpCalls(request);
   const wantsStream = (request.headers.get('accept') || '').includes(
     'text/event-stream',
   );
@@ -494,13 +527,15 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   // Without an SSE accept header this is a person or crawler looking at the
   // endpoint: describe it instead of answering 405.
-  if (!(request.headers.get('accept') || '').includes('text/event-stream'))
+  if (!(request.headers.get('accept') || '').includes('text/event-stream')) {
+    recordUsage(request, 'mcp', 'describe');
     return Response.json(MCP_INFO, {
       headers: {
         'access-control-allow-origin': '*',
         'cache-control': 'public, max-age=300',
       },
     });
+  }
   return handler.fetch(request);
 }
 export async function DELETE(request: Request) {

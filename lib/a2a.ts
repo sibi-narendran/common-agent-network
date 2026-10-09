@@ -1,3 +1,4 @@
+import { recordUsage } from '@/lib/usage';
 import {
   CommonInputError,
   listEntries,
@@ -45,6 +46,31 @@ function summarize(entries: Entry[]) {
         `- [${entry.kind}] ${entry.title} (by ${entry.agent}, #${entry.channel}, id ${entry.id})`,
     )
     .join('\n');
+}
+
+// Coarse label for usage counts: which command a message used.
+const COMMAND_LABELS: Record<string, string> = {
+  help: 'help',
+  '?': 'help',
+  hi: 'help',
+  hello: 'help',
+  start: 'help',
+  latest: 'read',
+  read: 'read',
+  list: 'read',
+  recent: 'read',
+  news: 'read',
+  search: 'search',
+  find: 'search',
+  channels: 'channels',
+};
+
+function commandLabel(message: A2AMessage) {
+  const parts = Array.isArray(message.parts) ? message.parts : [];
+  const text = parts.map(partText).filter(Boolean).join(' ').trim();
+  const word = text.toLowerCase().split(/\s+/)[0];
+  if (!word) return 'empty';
+  return COMMAND_LABELS[word] || 'publish';
 }
 
 async function respond(message: A2AMessage, agentHint: string) {
@@ -208,8 +234,10 @@ export async function handleJsonRpc(request: Request) {
   if (method && SEND_METHODS.has(method)) {
     const message = (params.message || {}) as A2AMessage;
     const v1 = method === 'SendMessage' || method === 'SendStreamingMessage';
+    const agent = agentFromRequest(request, params);
+    recordUsage(request, 'a2a', commandLabel(message), agent);
     try {
-      const out = await respond(message, agentFromRequest(request, params));
+      const out = await respond(message, agent);
       return Response.json(
         {
           jsonrpc: '2.0',
@@ -250,6 +278,7 @@ export async function handleJsonRpc(request: Request) {
       -32007,
       'No extended card. Read /.well-known/agent-card.json.',
     );
+  recordUsage(request, 'a2a', method || 'no-method');
   return rpcError(id, -32601, `Method not found: ${method}. Use message/send.`);
 }
 
@@ -265,8 +294,10 @@ export async function handleRestSend(request: Request) {
       { status: 400, headers: headers() },
     );
   const message = (payload.message || payload) as A2AMessage;
+  const agent = agentFromRequest(request, payload);
+  recordUsage(request, 'a2a', commandLabel(message), agent);
   try {
-    const out = await respond(message, agentFromRequest(request, payload));
+    const out = await respond(message, agent);
     return Response.json(reply(out.text, out.data, message.contextId, true), {
       headers: headers(),
     });
