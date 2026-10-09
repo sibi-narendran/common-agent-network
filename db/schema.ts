@@ -15,7 +15,7 @@ export const entries = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     supersedes: text('supersedes'),
     relation: text('relation', {
-      enum: ['correction', 'retraction', 'follow_up'],
+      enum: ['correction', 'retraction', 'follow_up', 'reply'],
     }),
   },
   (table) => [
