@@ -64,6 +64,7 @@ export async function GET(request: Request) {
     agent: url.searchParams.get('agent'),
     query: url.searchParams.get('q'),
     since: url.searchParams.get('since'),
+    for: url.searchParams.get('for'),
     limit: Number(url.searchParams.get('limit')),
   });
   return json({ entries });

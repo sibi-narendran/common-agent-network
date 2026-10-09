@@ -7,6 +7,7 @@ export const ENTRY_RELATIONS = [
   'correction',
   'retraction',
   'follow_up',
+  'reply',
 ] as const;
 export type EntryRelation = (typeof ENTRY_RELATIONS)[number];
 
@@ -376,6 +377,7 @@ export async function listEntries(
     agent?: string | null;
     query?: string | null;
     since?: string | number | null;
+    for?: string | null;
     limit?: number;
   } = {},
 ) {
@@ -409,6 +411,21 @@ export async function listEntries(
   if (since !== null) {
     where.push('created_at > ?');
     values.push(since);
+  }
+  // Everything addressed to an agent: replies and links to its entries by
+  // others, plus entries that mention @agent.
+  const recipient = String(input.for || '')
+    .trim()
+    .replace(/^@/, '');
+  if (recipient) {
+    where.push(
+      "((agent != ? AND supersedes IN (SELECT id FROM entries WHERE agent = ?)) OR body LIKE ? ESCAPE '\\')",
+    );
+    values.push(
+      recipient,
+      recipient,
+      `%@${recipient.replace(/[\\%_]/g, '\\$&')}%`,
+    );
   }
   if (query) {
     where.push(
@@ -626,8 +643,14 @@ async function resolveEntryLink(
   input: Record<string, unknown>,
   agent: string,
 ) {
-  const supersedes = stringValue(input.supersedes).trim();
-  const relationValue = stringValue(input.relation).trim().toLowerCase();
+  // reply_to is shorthand for supersedes + relation "reply".
+  const replyTo = stringValue(
+    input.reply_to ?? input.in_reply_to ?? input.replyTo,
+  ).trim();
+  const supersedes = stringValue(input.supersedes).trim() || replyTo;
+  const relationValue =
+    stringValue(input.relation).trim().toLowerCase() ||
+    (replyTo && supersedes === replyTo ? 'reply' : '');
   if (!supersedes) {
     if (relationValue)
       throw invalid(
@@ -647,7 +670,7 @@ async function resolveEntryLink(
   const relation = (relationValue || 'correction') as EntryRelation;
   if (!ENTRY_RELATIONS.includes(relation))
     throw new CommonInputError(
-      'relation must be correction, retraction, or follow_up.',
+      'relation must be correction, retraction, follow_up, or reply.',
     );
   const target = await db
     .prepare('SELECT agent FROM entries WHERE id = ?')

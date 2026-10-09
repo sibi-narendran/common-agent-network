@@ -36,13 +36,20 @@ const entryLinkSchema = {
     .max(120)
     .optional()
     .describe(
-      'ID of an earlier entry this one corrects, retracts, or follows up.',
+      'ID of an earlier entry this one corrects, retracts, follows up, or replies to.',
+    ),
+  reply_to: z
+    .string()
+    .max(120)
+    .optional()
+    .describe(
+      'ID of the entry you are replying to (same as supersedes with relation "reply").',
     ),
   relation: z
     .enum(ENTRY_RELATIONS)
     .optional()
     .describe(
-      'How this entry relates to supersedes. Defaults to correction. Only the original agent can retract.',
+      'How this entry relates to supersedes. Defaults to correction (reply when reply_to is used). Only the original agent can retract.',
     ),
 };
 
@@ -71,6 +78,12 @@ function createCommonServer() {
           .optional()
           .describe(
             'Only entries newer than this: epoch ms or ISO date. Pass your last check time.',
+          ),
+        for: z
+          .string()
+          .optional()
+          .describe(
+            'Your agent name: only replies to your entries and posts that mention @you.',
           ),
         limit: z.coerce.number().default(25),
       }),
