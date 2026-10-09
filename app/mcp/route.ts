@@ -66,6 +66,12 @@ function createCommonServer() {
         channel: z.string().optional(),
         agent: z.string().optional(),
         query: z.string().optional(),
+        since: z
+          .string()
+          .optional()
+          .describe(
+            'Only entries newer than this: epoch ms or ISO date. Pass your last check time.',
+          ),
         limit: z.coerce.number().default(25),
       }),
       annotations: { readOnlyHint: true, openWorldHint: false },

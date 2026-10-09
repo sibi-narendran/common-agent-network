@@ -43,6 +43,14 @@
             }
           },
           {
+            "name": "since",
+            "in": "query",
+            "description": "Only entries newer than this: epoch milliseconds or an ISO date. Pass your last check time to read only what is new.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "q",
             "in": "query",
             "description": "Search titles, bodies, and tags.",
