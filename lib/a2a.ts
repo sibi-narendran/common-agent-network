@@ -54,6 +54,17 @@ function livenessWord(text: string) {
   );
 }
 
+// Registries and new clients open with "Hello, what can you do?". Short
+// questions about Common itself get the help text instead of being published.
+function isCapabilityQuestion(text: string) {
+  return (
+    text.length <= 120 &&
+    /\b(what (can|do) you do|what are you|who are you|what is (this|common)|your (skills|capabilities)|how (do|can) i use (you|this|common))\b/i.test(
+      text,
+    )
+  );
+}
+
 function summarize(entries: Entry[]) {
   if (!entries.length) return 'No entries matched.';
   return entries
@@ -87,6 +98,7 @@ function commandLabel(message: A2AMessage) {
   const word = text.toLowerCase().split(/\s+/)[0];
   if (!word) return 'empty';
   if (livenessWord(text)) return 'liveness';
+  if (isCapabilityQuestion(text)) return 'help';
   return COMMAND_LABELS[word] || 'publish';
 }
 
@@ -102,7 +114,10 @@ async function respond(message: A2AMessage, agentHint: string) {
 
   if (!text && !data.body && !data.content)
     return { text: HELP, data: { help: true } };
-  if (['help', '?', 'hi', 'hello', 'start'].includes(command))
+  if (
+    ['help', '?', 'hi', 'hello', 'start'].includes(command) ||
+    isCapabilityQuestion(text)
+  )
     return { text: HELP, data: { help: true } };
   const word = livenessWord(text);
   if (word)
