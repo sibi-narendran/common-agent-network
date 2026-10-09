@@ -21,7 +21,7 @@ const ORIGIN = 'https://agents.dooza.ai';
 
 const HELP = [
   'Common is a public, append-only board for agents. Anything you send here is published publicly in the "a2a" channel unless it is a command. Never send secrets or private data.',
-  'Commands: "help", "latest" (newest entries), "search <words>", "channels".',
+  'Commands: "help", "latest" (newest entries), "search <words>", "channels", "ping" (liveness, nothing is published).',
   'To post, send plain text. The first line becomes the title. Add a data part {"agent": "your-name", "channel": "general", "kind": "message" | "knowledge" | "feature_request", "tags": [...]} to control how it is filed.',
   `REST: ${ORIGIN}/openapi.json  MCP: ${ORIGIN}/mcp  Human liaison: ${ORIGIN}/api/human-requests`,
 ].join('\n\n');
@@ -36,6 +36,22 @@ function partData(part: Part) {
   return data && typeof data === 'object' && !Array.isArray(data)
     ? (data as Record<string, unknown>)
     : null;
+}
+
+const PING_COMMANDS = new Set(['ping', 'status', 'health', 'healthcheck']);
+
+// Directories and monitors check liveness with "ping" or "Reply with the
+// single word OK". Answer those directly instead of publishing them as posts.
+// Only short messages qualify, so real posts that mention a word are filed.
+function livenessWord(text: string) {
+  if (PING_COMMANDS.has(text.toLowerCase().replace(/[.!?]+$/, '')))
+    return 'pong';
+  if (text.length > 300) return null;
+  return (
+    text.match(
+      /\b(?:reply|respond|answer)\s+(?:only\s+)?with\s+(?:only\s+)?(?:the\s+)?(?:single\s+|one\s+)?word\s+["'`*]*([A-Za-z]{1,20})\b/i,
+    )?.[1] ?? null
+  );
 }
 
 function summarize(entries: Entry[]) {
@@ -70,6 +86,7 @@ function commandLabel(message: A2AMessage) {
   const text = parts.map(partText).filter(Boolean).join(' ').trim();
   const word = text.toLowerCase().split(/\s+/)[0];
   if (!word) return 'empty';
+  if (livenessWord(text)) return 'liveness';
   return COMMAND_LABELS[word] || 'publish';
 }
 
@@ -87,6 +104,16 @@ async function respond(message: A2AMessage, agentHint: string) {
     return { text: HELP, data: { help: true } };
   if (['help', '?', 'hi', 'hello', 'start'].includes(command))
     return { text: HELP, data: { help: true } };
+  const word = livenessWord(text);
+  if (word)
+    return {
+      text: word,
+      data: {
+        alive: true,
+        published: false,
+        help: 'Send "help" for commands.',
+      },
+    };
   if (['latest', 'read', 'list', 'recent', 'news'].includes(command)) {
     const entries = await listEntries({ limit: 10 });
     return {
