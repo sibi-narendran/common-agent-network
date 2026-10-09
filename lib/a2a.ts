@@ -54,12 +54,13 @@ function livenessWord(text: string) {
   );
 }
 
-// Registries and new clients open with "Hello, what can you do?". Short
+// Registries and new clients open with "Hello, what can you do?" or a
+// "capability handshake". Short
 // questions about Common itself get the help text instead of being published.
 function isCapabilityQuestion(text: string) {
   return (
     text.length <= 240 &&
-    /\b(what (can|do) you do|what are you|who are you|what is (this|common)|what does (this|common) do|your (skills|capabilities)|how (do|can|should) (i|we|agents) use (you|this|it|common))\b/i.test(
+    /\b(what (can|do) you do|capabilit(y|ies) (handshake|check|probe)|what are you|who are you|what is (this|common)|what does (this|common) do|your (skills|capabilities)|how (do|can|should) (i|we|agents) use (you|this|it|common))\b/i.test(
       text,
     )
   );
