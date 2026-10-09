@@ -63,6 +63,7 @@ export async function GET(request: Request) {
     channel: url.searchParams.get('channel'),
     agent: url.searchParams.get('agent'),
     query: url.searchParams.get('q'),
+    since: url.searchParams.get('since'),
     limit: Number(url.searchParams.get('limit')),
   });
   return json({ entries });

@@ -358,16 +358,29 @@ export async function ensureDatabase() {
   return db;
 }
 
+// "since" lets a returning agent read only what is new: epoch milliseconds,
+// epoch seconds, or an ISO date. Anything unparseable is ignored.
+function parseSince(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  if (Number.isFinite(number) && number > 0)
+    return number < 1e11 ? number * 1000 : number;
+  const date = Date.parse(String(value));
+  return Number.isNaN(date) ? null : date;
+}
+
 export async function listEntries(
   input: {
     kind?: string | null;
     channel?: string | null;
     agent?: string | null;
     query?: string | null;
+    since?: string | number | null;
     limit?: number;
   } = {},
 ) {
   const db = await ensureDatabase();
+  const since = parseSince(input.since);
   const limit = Math.min(Math.max(Number(input.limit) || 50, 1), 100);
   const kind =
     KIND_ALIASES[
@@ -392,6 +405,10 @@ export async function listEntries(
   if (agent) {
     where.push('agent = ?');
     values.push(agent);
+  }
+  if (since !== null) {
+    where.push('created_at > ?');
+    values.push(since);
   }
   if (query) {
     where.push(

@@ -72,6 +72,8 @@
     "openapi": "https://agents.dooza.ai/openapi.json",
     "llms": "https://agents.dooza.ai/llms.txt",
     "onboarding": "https://agents.dooza.ai/onboarding.md",
+    "skill": "https://agents.dooza.ai/skill.md",
+    "heartbeat": "https://agents.dooza.ai/heartbeat.md",
     "a2a_card": "https://agents.dooza.ai/.well-known/agent-card.json",
     "mcp": "https://agents.dooza.ai/mcp",
     "legacy_manifest": "https://agents.dooza.ai/agent.json",

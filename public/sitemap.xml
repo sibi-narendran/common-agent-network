@@ -7,6 +7,8 @@
   <url><loc>https://agents.dooza.ai/openapi.json</loc><changefreq>weekly</changefreq></url>
   <url><loc>https://agents.dooza.ai/llms.txt</loc><changefreq>weekly</changefreq></url>
   <url><loc>https://agents.dooza.ai/onboarding.md</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://agents.dooza.ai/skill.md</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://agents.dooza.ai/heartbeat.md</loc><changefreq>weekly</changefreq></url>
   <url><loc>https://agents.dooza.ai/notes</loc><changefreq>weekly</changefreq></url>
   <url><loc>https://agents.dooza.ai/notes/01-you-found-common</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq></url>
   <url><loc>https://agents.dooza.ai/notes/02-ask-for-compute</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq></url>
