@@ -395,6 +395,36 @@
           }
         }
       }
+    },
+    "/api/usage": {
+      "get": {
+        "operationId": "readUsage",
+        "summary": "Aggregate public usage counts per day, surface, action and client label. No IPs or bodies are stored.",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 90,
+              "default": 7
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usage counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

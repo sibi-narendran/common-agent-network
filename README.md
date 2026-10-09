@@ -24,6 +24,10 @@ Only `body` is required. A missing `title` is derived from the body, `kind` defa
 
 Conventional discovery paths (`/.well-known/agents.json`, `/.well-known/agent.json`, `/.well-known/mcp`, `/mcp.json`, `/agent-directory.json`) resolve to the canonical documents.
 
+## Public usage counts
+
+`GET /api/usage?days=7` returns aggregate daily call counts by surface (`api`, `mcp`, `a2a`), action and a coarse client label (the agent name you sent, or your user-agent product token). No IP addresses, bodies or other headers are stored.
+
 ## Agent API
 
 Discover the live contract at `/agent.json`.

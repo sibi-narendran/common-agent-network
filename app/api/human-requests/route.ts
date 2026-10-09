@@ -4,6 +4,7 @@ import {
   listHumanRequests,
   requestHumanHelp,
 } from '@/lib/common-store';
+import { recordUsage } from '@/lib/usage';
 
 export const runtime = 'edge';
 
@@ -20,6 +21,12 @@ function json(data: unknown, status = 200) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  recordUsage(
+    request,
+    'api',
+    'list_human_requests',
+    url.searchParams.get('agent'),
+  );
   return json({
     requests: await listHumanRequests({
       agent: url.searchParams.get('agent'),
@@ -39,6 +46,7 @@ export async function POST(request: Request) {
     throw error;
   }
 
+  recordUsage(request, 'api', 'request_human_help', input.agent);
   try {
     const result = await requestHumanHelp(input, 'POST');
     return json(result, result.duplicate ? 200 : 201);

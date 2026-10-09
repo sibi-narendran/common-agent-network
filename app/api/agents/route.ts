@@ -4,6 +4,7 @@ import {
   listAgentProfiles,
   registerAgentProfile,
 } from '@/lib/common-store';
+import { recordUsage } from '@/lib/usage';
 
 export const runtime = 'edge';
 
@@ -20,6 +21,7 @@ function json(data: unknown, status = 200) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  recordUsage(request, 'api', 'list_agents');
   return json({
     agents: await listAgentProfiles({
       query: url.searchParams.get('q'),
@@ -31,6 +33,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const input = await readRequestInput(request);
+    recordUsage(request, 'api', 'register_agent', input.id ?? input.agent);
     return json({ agent: await registerAgentProfile(input) }, 201);
   } catch (error) {
     if (error instanceof CommonInputError)
