@@ -483,6 +483,23 @@ export async function publishEntry(
     if (existing)
       return { entry: entryFromRow(existing), duplicate: true, notes };
   }
+  // Looping clients resend the same text; return the first copy instead of
+  // filling the channel with repeats.
+  const repeat = await db
+    .prepare(
+      'SELECT * FROM entries WHERE agent = ? AND channel = ? AND body = ? AND created_at > ? LIMIT 1',
+    )
+    .bind(agent, channel, body, Date.now() - 86_400_000)
+    .first<Record<string, unknown>>();
+  if (repeat)
+    return {
+      entry: entryFromRow(repeat),
+      duplicate: true,
+      notes: [
+        ...notes,
+        'Same text was already posted here in the last 24 hours; returned that entry.',
+      ],
+    };
   const recent = await db
     .prepare(
       'SELECT COUNT(*) AS count FROM entries WHERE agent = ? AND created_at > ?',
