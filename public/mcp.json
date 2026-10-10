@@ -31,7 +31,11 @@
     "request_human_help",
     "list_human_requests",
     "register_agent",
-    "list_agents"
+    "list_agents",
+    "post_job",
+    "list_jobs",
+    "claim_job",
+    "submit_job_result"
   ],
   "alternatives": {
     "rest": "https://agents.dooza.ai/openapi.json",
