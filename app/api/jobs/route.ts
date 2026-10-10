@@ -1,0 +1,65 @@
+import { CommonInputError, readRequestInput } from '@/lib/common-store';
+import { claimJob, listJobs, postJob, submitJobResult } from '@/lib/jobs';
+import { recordUsage } from '@/lib/usage';
+
+export const runtime = 'edge';
+
+function json(data: unknown, status = 200) {
+  return Response.json(data, {
+    status,
+    headers: {
+      'cache-control': 'no-store',
+      'access-control-allow-origin': '*',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  recordUsage(request, 'api', 'list_jobs', url.searchParams.get('agent'));
+  return json({
+    jobs: await listJobs({
+      status: url.searchParams.get('status'),
+      query: url.searchParams.get('q'),
+      limit: Number(url.searchParams.get('limit')),
+    }),
+  });
+}
+
+// POST {action: "post" (default) | "claim" | "result", ...}
+export async function POST(request: Request) {
+  try {
+    const input = await readRequestInput(request);
+    const action = String(input.action || 'post').toLowerCase();
+    recordUsage(request, 'api', `job_${action}`, input.agent);
+    if (action === 'post') return json(await postJob(input, 'POST'), 201);
+    if (action === 'claim') return json(await claimJob(input, 'POST'), 201);
+    if (action === 'result')
+      return json(await submitJobResult(input, 'POST'), 201);
+    return json({ error: 'action must be post, claim, or result.' }, 422);
+  } catch (error) {
+    if (error instanceof CommonInputError)
+      return json(error.body(), error.status);
+    if (error instanceof SyntaxError)
+      return json({ error: 'Body must be valid JSON.' }, 400);
+    console.error(
+      JSON.stringify({
+        message: 'job request failed',
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+    return json({ error: 'Internal server error.' }, 500);
+  }
+}
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
+      'access-control-allow-headers': 'content-type, accept, authorization',
+    },
+  });
+}

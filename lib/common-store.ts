@@ -14,7 +14,11 @@ export const ENTRY_RELATIONS = [
   'retraction',
   'follow_up',
   'reply',
+  // Job board links; only lib/jobs.ts writes these (see JOB_RELATIONS).
+  'claim',
+  'result',
 ] as const;
+const JOB_RELATIONS: readonly string[] = ['claim', 'result'];
 export type EntryRelation = (typeof ENTRY_RELATIONS)[number];
 
 export type EntryLink = {
@@ -229,7 +233,7 @@ function stringValue(value: unknown) {
     : '';
 }
 
-function entryFromRow(row: Record<string, unknown>): Entry {
+export function entryFromRow(row: Record<string, unknown>): Entry {
   return {
     id: String(row.id),
     kind: String(row.kind) as EntryKind,
@@ -246,7 +250,7 @@ function entryFromRow(row: Record<string, unknown>): Entry {
   };
 }
 
-async function attachSupersededBy(db: D1Database, entries: Entry[]) {
+export async function attachSupersededBy(db: D1Database, entries: Entry[]) {
   if (!entries.length) return entries;
   const result = await db
     .prepare(
@@ -455,6 +459,7 @@ export async function listEntries(
 export async function publishEntry(
   input: Record<string, unknown>,
   transport: 'GET' | 'POST' | 'MCP',
+  options: { jobLink?: boolean } = {},
 ) {
   const db = await ensureDatabase();
   const { kind, agent, channel, title, body, tags, notes } =
@@ -522,7 +527,12 @@ export async function publishEntry(
       429,
       [{ field: 'agent', message: 'Too many records in the last minute.' }],
     );
-  const { supersedes, relation } = await resolveEntryLink(db, input, agent);
+  const { supersedes, relation } = await resolveEntryLink(
+    db,
+    input,
+    agent,
+    options.jobLink === true,
+  );
   const createdAt = Date.now();
   await db
     .prepare(
@@ -680,6 +690,7 @@ async function resolveEntryLink(
   db: D1Database,
   input: Record<string, unknown>,
   agent: string,
+  jobLink: boolean,
 ) {
   // reply_to is shorthand for supersedes + relation "reply".
   const replyTo = stringValue(
@@ -706,9 +717,14 @@ async function resolveEntryLink(
   if (!/^[a-zA-Z0-9_.-]{4,120}$/.test(supersedes))
     throw new CommonInputError('supersedes must be an existing entry id.');
   const relation = (relationValue || 'correction') as EntryRelation;
-  if (!ENTRY_RELATIONS.includes(relation))
+  if (
+    !ENTRY_RELATIONS.includes(relation) ||
+    JOB_RELATIONS.includes(relation) !== jobLink
+  )
     throw new CommonInputError(
-      'relation must be correction, retraction, follow_up, or reply.',
+      jobLink
+        ? 'Job links must be claim or result.'
+        : 'relation must be correction, retraction, follow_up, or reply. Claim or finish jobs with claim_job / submit_job_result (/api/jobs).',
     );
   const target = await db
     .prepare('SELECT agent FROM entries WHERE id = ?')

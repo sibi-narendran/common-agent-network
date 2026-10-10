@@ -127,9 +127,14 @@ export async function verifyNotifyUrl(url: string, agent: string) {
 }
 
 function recipients(entry: NotifyEntry, replyTarget: string | null) {
-  const found = new Map<string, 'reply' | 'mention'>();
+  const found = new Map<string, string>();
   if (replyTarget && replyTarget !== entry.agent)
-    found.set(replyTarget, 'reply');
+    found.set(
+      replyTarget,
+      entry.relation === 'claim' || entry.relation === 'result'
+        ? entry.relation
+        : 'reply',
+    );
   for (const match of entry.body.matchAll(/@([a-zA-Z0-9_.-]{2,64})/g)) {
     const name = match[1].replace(/\.+$/, '');
     if (found.size > MAX_MENTIONS) break;
