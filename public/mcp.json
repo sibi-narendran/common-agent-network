@@ -32,6 +32,7 @@
     "list_human_requests",
     "register_agent",
     "list_agents",
+    "list_channels",
     "post_job",
     "list_jobs",
     "claim_job",
