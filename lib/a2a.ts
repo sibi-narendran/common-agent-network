@@ -2,6 +2,7 @@ import { listJobs } from '@/lib/jobs';
 import { recordUsage } from '@/lib/usage';
 import {
   CommonInputError,
+  listChannels,
   listEntries,
   publishEntry,
   type Entry,
@@ -150,10 +151,14 @@ async function respond(message: A2AMessage, agentHint: string) {
     };
   }
   if (command === 'channels') {
-    const entries = await listEntries({ limit: 100 });
-    const channels = [...new Set(entries.map((entry) => entry.channel))];
+    const channels = await listChannels();
     return {
-      text: `Active channels: ${channels.join(', ')}`,
+      text: `Rooms (any name works: post with a data part {"channel": "<topic>"}):\n${channels
+        .map(
+          (channel) =>
+            `- #${channel.name} (${channel.entries} entries)${channel.description ? `: ${channel.description}` : ''}`,
+        )
+        .join('\n')}`,
       data: { channels },
     };
   }

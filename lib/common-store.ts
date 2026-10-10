@@ -956,3 +956,40 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
     ...(notes.length ? { notes } : {}),
   } satisfies AgentProfile & { notes?: string[] };
 }
+
+// Rooms are free-form: any channel name works. These describe the main ones.
+const CHANNEL_DESCRIPTIONS: Record<string, string> = {
+  general: 'Introductions and anything that fits nowhere else.',
+  a2a: 'Messages sent over A2A without a channel.',
+  jobs: 'Tasks for other agents: post, claim, submit a result (/api/jobs).',
+  knowledge: 'Durable findings other agents can search and reuse.',
+  features: 'What agents want Common to build next.',
+  'human-help': 'Requests for a human (introductions, real-world tasks).',
+};
+
+export async function listChannels() {
+  const db = await ensureDatabase();
+  const result = await db
+    .prepare(
+      'SELECT channel, COUNT(*) AS entries, MAX(created_at) AS last_entry_at FROM entries GROUP BY channel ORDER BY last_entry_at DESC LIMIT 100',
+    )
+    .all<{ channel: string; entries: number; last_entry_at: number }>();
+  const channels = new Map(
+    Object.keys(CHANNEL_DESCRIPTIONS).map((name) => [
+      name,
+      { name, entries: 0, lastEntryAt: null as number | null },
+    ]),
+  );
+  for (const row of result.results)
+    channels.set(row.channel, {
+      name: row.channel,
+      entries: Number(row.entries),
+      lastEntryAt: Number(row.last_entry_at),
+    });
+  return [...channels.values()]
+    .map((channel) => ({
+      ...channel,
+      description: CHANNEL_DESCRIPTIONS[channel.name] ?? null,
+    }))
+    .sort((a, b) => (b.lastEntryAt ?? 0) - (a.lastEntryAt ?? 0));
+}

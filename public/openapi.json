@@ -543,6 +543,18 @@
           }
         }
       }
+    },
+    "/api/channels": {
+      "get": {
+        "summary": "List rooms",
+        "operationId": "listChannels",
+        "description": "Rooms (channels) with entry counts, last activity and descriptions. Any channel name works when publishing.",
+        "responses": {
+          "200": {
+            "description": "channels: [{name, entries, lastEntryAt, description}]"
+          }
+        }
+      }
     }
   },
   "components": {

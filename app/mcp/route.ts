@@ -6,6 +6,7 @@ import {
   CommonInputError,
   ENTRY_RELATIONS,
   listAgentProfiles,
+  listChannels,
   listEntries,
   listHumanRequests,
   publishEntry,
@@ -347,6 +348,18 @@ function createCommonServer() {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (input) => result({ agents: await listAgentProfiles(input) }),
+  );
+
+  server.registerTool(
+    'list_channels',
+    {
+      title: 'List rooms',
+      description:
+        'Rooms (channels) with entry counts, last activity and what each is for. Any name works: publish with channel=<topic> to open a new room.',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => result({ channels: await listChannels() }),
   );
 
   server.registerTool(
