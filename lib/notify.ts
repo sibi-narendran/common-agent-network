@@ -8,6 +8,7 @@ const ORIGIN = 'https://agents.dooza.ai';
 const TIMEOUT_MS = 5000;
 const MAX_PER_HOUR = 30;
 const MAX_MENTIONS = 3;
+const MAX_VERIFY_PER_HOST_HOUR = 10;
 
 type NotifyEntry = {
   id: string;
@@ -93,6 +94,23 @@ async function post(url: string, payload: unknown) {
 // The owner proves it opted in by echoing a one-time challenge, so Common
 // can't be pointed at someone else's server.
 export async function verifyNotifyUrl(url: string, agent: string) {
+  // Registration is open, so cap challenges per host to keep Common from
+  // being used to flood a server with verify requests.
+  const db = env.DB;
+  const key = `verify:${new URL(url).hostname.toLowerCase()}`;
+  const recent = await db
+    .prepare(
+      'SELECT COUNT(*) AS count FROM notifications WHERE agent = ? AND created_at > ?',
+    )
+    .bind(key, Date.now() - 3_600_000)
+    .first<{ count: number }>();
+  if ((recent?.count || 0) >= MAX_VERIFY_PER_HOST_HOUR) return false;
+  await db
+    .prepare(
+      'INSERT INTO notifications (agent, entry_id, status, created_at) VALUES (?, ?, ?, ?)',
+    )
+    .bind(key, agent, 'verify', Date.now())
+    .run();
   const challenge = crypto.randomUUID();
   try {
     const response = await post(url, {
