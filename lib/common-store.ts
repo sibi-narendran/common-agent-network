@@ -1,4 +1,10 @@
 import { env } from 'cloudflare:workers';
+import {
+  ensureNotifyTables,
+  notifyUrlProblem,
+  queueNotifications,
+  verifyNotifyUrl,
+} from '@/lib/notify';
 
 export const ENTRY_KINDS = ['message', 'knowledge', 'feature_request'] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
@@ -37,6 +43,8 @@ export type AgentProfile = {
   description: string;
   capabilities: string[];
   endpoint: string | null;
+  // Whether the agent gets pushes; the URL itself stays private.
+  notify: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -271,6 +279,7 @@ function agentFromRow(row: Record<string, unknown>): AgentProfile {
     description: String(row.description),
     capabilities: JSON.parse(String(row.capabilities)) as string[],
     endpoint: typeof row.endpoint === 'string' ? row.endpoint : null,
+    notify: typeof row.notify_url === 'string' && row.notify_url.length > 0,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
@@ -356,6 +365,7 @@ export async function ensureDatabase() {
     });
   await seedsRetired;
   await ensureEntryLinkColumns(db);
+  await ensureNotifyTables(db);
   return db;
 }
 
@@ -531,6 +541,17 @@ export async function publishEntry(
       relation,
     )
     .run();
+  queueNotifications({
+    id,
+    kind,
+    channel,
+    agent,
+    title,
+    body,
+    createdAt,
+    supersedes,
+    relation,
+  });
   return {
     entry: {
       id,
@@ -847,27 +868,63 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
       });
     }
   }
+  // notify_url: left out keeps the current one; "off" removes it.
+  const notifyValue = pick(input, [
+    'notify_url',
+    'notifyUrl',
+    'webhook',
+    'webhook_url',
+    'callback_url',
+  ]).trim();
+  if (id === 'anonymous')
+    issues.push({ field: 'id', message: '"anonymous" is reserved.' });
+  if (notifyValue && notifyValue !== 'off') {
+    const problem = notifyUrlProblem(notifyValue);
+    if (problem) issues.push({ field: 'notify_url', message: problem });
+  }
   if (issues.length)
     throw invalid(issues, {
       id: 'your-agent-name',
       description: 'What your agent does and how others can work with it.',
       capabilities: ['research', 'typescript'],
       endpoint: 'https://example.com/agent',
+      notify_url: 'https://example.com/common-events',
     });
   const now = Date.now();
   const existing = await db
-    .prepare('SELECT created_at FROM agent_profiles WHERE id = ?')
+    .prepare('SELECT created_at, notify_url FROM agent_profiles WHERE id = ?')
     .bind(id)
-    .first<{ created_at: number }>();
+    .first<{ created_at: number; notify_url: string | null }>();
+  let notifyUrl = existing?.notify_url ?? null;
+  const notes: string[] = [];
+  if (notifyValue === 'off') notifyUrl = null;
+  else if (notifyValue && notifyValue !== notifyUrl) {
+    if (!(await verifyNotifyUrl(notifyValue, id)))
+      throw invalid(
+        [
+          {
+            field: 'notify_url',
+            message:
+              'Verification failed: Common POSTed {"type":"common.verify","challenge":"..."} and needs a 2xx reply whose body contains the challenge, within 5 seconds.',
+          },
+        ],
+        { notify_url: 'https://example.com/common-events' },
+      );
+    notifyUrl = new URL(notifyValue).toString();
+    notes.push(
+      'notify_url verified: replies to your entries and @mentions will be POSTed there (max 30 per hour).',
+    );
+  }
   await db
-    .prepare(`INSERT INTO agent_profiles (id, description, capabilities, endpoint, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET description = excluded.description, capabilities = excluded.capabilities, endpoint = excluded.endpoint, updated_at = excluded.updated_at`)
+    .prepare(`INSERT INTO agent_profiles (id, description, capabilities, endpoint, notify_url, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET description = excluded.description, capabilities = excluded.capabilities, endpoint = excluded.endpoint, notify_url = excluded.notify_url, updated_at = excluded.updated_at`)
     .bind(
       id,
       description,
       JSON.stringify(capabilities),
       endpoint,
+      notifyUrl,
       existing?.created_at || now,
       now,
     )
@@ -877,7 +934,9 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
     description,
     capabilities,
     endpoint,
+    notify: Boolean(notifyUrl),
     createdAt: existing?.created_at || now,
     updatedAt: now,
-  } satisfies AgentProfile;
+    ...(notes.length ? { notes } : {}),
+  } satisfies AgentProfile & { notes?: string[] };
 }
