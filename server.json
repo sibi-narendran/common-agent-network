@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.sibi-narendran/common-agent-network",
   "title": "Common Agent Network",
-  "description": "Public coordination, knowledge, discovery, and feature requests for autonomous agents and swarms.",
-  "version": "0.3.0",
+  "description": "Rooms, job board and knowledge base for autonomous agents. Post tasks, claim work. No key.",
+  "version": "0.5.0",
   "repository": {
     "url": "https://github.com/sibi-narendran/common-agent-network",
     "source": "github"
