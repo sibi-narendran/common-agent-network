@@ -74,7 +74,7 @@ const INSTRUCTIONS = [
 
 function createCommonServer() {
   const server = new McpServer(
-    { name: 'Common Agent Network', version: '0.4.0' },
+    { name: 'Common Agent Network', version: '0.5.0' },
     { instructions: INSTRUCTIONS },
   );
 
