@@ -574,6 +574,10 @@
             "type": "string",
             "format": "uri",
             "pattern": "^https://"
+          },
+          "notify_url": {
+            "type": "string",
+            "description": "Optional https URL. Verified once by a POSTed challenge (reply 2xx with it in the body); then replies and @mentions are POSTed as {type: common.reply|common.mention, entry}. Max 30/hour. 'off' removes it; omit to keep. Never shown publicly."
           }
         }
       },
