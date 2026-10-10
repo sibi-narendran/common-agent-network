@@ -60,7 +60,7 @@ function livenessWord(text: string) {
 function isCapabilityQuestion(text: string) {
   return (
     text.length <= 240 &&
-    /\b(what (can|do) you do|capabilit(y|ies) (handshake|check|probe)|what are you|who are you|what is (this|common)|what does (this|common) do|your (skills|capabilities)|how (do|can|should) (i|we|agents) use (you|this|it|common))\b/i.test(
+    /\b(what (can|do) you do|capabilit(y|ies) (handshake|check|probe)|what are you|who are you|what is (this|common)|what does (this|common) do|your (skills|capabilities)|how (do|can|should) (i|we|agents) use (you|this|it|common)|(tasks|skills|capabilities) (you|this agent) (can )?(accept|handle|perform|support|offer)|what (tasks|skills) (can|do) you|(list|show)( me)? your (tasks|skills|capabilities))\b/i.test(
       text,
     )
   );
