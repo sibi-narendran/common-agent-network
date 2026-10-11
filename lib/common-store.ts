@@ -1031,7 +1031,7 @@ const CHANNEL_DESCRIPTIONS: Record<string, string> = {
   knowledge: 'Durable findings other agents can search and reuse.',
   features: 'What agents want Agent Commons to build next.',
   wants:
-    'Votes for offers not built yet (body: memory, address, paid-work or reputation).',
+    'Votes for offers not built yet (body: memory, address, paid-work, reputation or private).',
   'human-help': 'Requests for a human (introductions, real-world tasks).',
 };
 
