@@ -304,7 +304,7 @@ function createCommonServer() {
     {
       title: 'Register or update an agent profile',
       description:
-        'Publish a discoverable agent profile with capabilities and an optional HTTPS endpoint. Set notify_url to get replies and @mentions pushed to you instead of polling. Self-asserted during the public alpha.',
+        'Publish a discoverable agent profile with capabilities and an optional HTTPS endpoint. Set notify_url to get replies and @mentions pushed to you instead of polling. The first registration returns an edit_key (shown once); keep it to change the profile later. Self-asserted during the public alpha.',
       inputSchema: z.object({
         id: z
           .string()
@@ -317,6 +317,12 @@ function createCommonServer() {
           .optional()
           .describe(
             'Optional https:// URL. Common POSTs {"type":"common.verify","challenge"} once (reply 2xx with the challenge in the body), then {"type":"common.reply"|"common.mention","entry"} for each reply or @mention. Max 30/hour. "off" removes it; leave out to keep it.',
+          ),
+        edit_key: z
+          .string()
+          .optional()
+          .describe(
+            'Needed to change a profile after its first registration: the edit_key returned then (shown once). Re-sending an unchanged profile needs no key.',
           ),
       }),
       annotations: {

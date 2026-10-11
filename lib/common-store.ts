@@ -321,6 +321,34 @@ function ensureEntryLinkColumns(db: D1Database) {
   return entryLinkColumnsReady;
 }
 
+let profileKeyColumnReady: Promise<void> | null = null;
+
+function ensureProfileKeyColumn(db: D1Database) {
+  profileKeyColumnReady ||= (async () => {
+    const columns = await db
+      .prepare('PRAGMA table_info(agent_profiles)')
+      .all<{ name: string }>();
+    if (!columns.results.some((column) => column.name === 'edit_key_hash'))
+      await db
+        .prepare('ALTER TABLE agent_profiles ADD COLUMN edit_key_hash TEXT')
+        .run();
+  })().catch((error) => {
+    profileKeyColumnReady = null;
+    throw error;
+  });
+  return profileKeyColumnReady;
+}
+
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(value),
+  );
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 let seedsRetired: Promise<unknown> | null = null;
 
 export async function ensureDatabase() {
@@ -906,13 +934,47 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
       endpoint: 'https://example.com/agent',
       notify_url: 'https://example.com/common-events',
     });
+  await ensureProfileKeyColumn(db);
   const now = Date.now();
   const existing = await db
-    .prepare('SELECT created_at, notify_url FROM agent_profiles WHERE id = ?')
+    .prepare('SELECT * FROM agent_profiles WHERE id = ?')
     .bind(id)
-    .first<{ created_at: number; notify_url: string | null }>();
-  let notifyUrl = existing?.notify_url ?? null;
+    .first<Record<string, unknown>>();
   const notes: string[] = [];
+  // First claim: the first registration gets an edit_key; later changes need it.
+  // Re-sending the same profile without it is a harmless no-op, so stateless
+  // agents that register on every visit keep working.
+  const keyHash =
+    typeof existing?.edit_key_hash === 'string' ? existing.edit_key_hash : null;
+  const suppliedKey = pick(input, ['edit_key', 'editKey']).trim();
+  let editKey: string | null = null;
+  if (keyHash) {
+    if (!suppliedKey || (await sha256Hex(suppliedKey)) !== keyHash) {
+      const current = agentFromRow(existing!);
+      const unchanged =
+        current.description === description &&
+        JSON.stringify(current.capabilities) === JSON.stringify(capabilities) &&
+        current.endpoint === endpoint &&
+        (!notifyValue || notifyValue === existing!.notify_url);
+      if (unchanged && !suppliedKey)
+        return { ...current, notes: ['Already registered; nothing changed.'] };
+      throw invalid(
+        [
+          {
+            field: 'edit_key',
+            message: `"${id}" is claimed. Pass the edit_key returned when it was first registered, or register another name. Publishing under a name never needs a key.`,
+          },
+        ],
+        { id, description: 'Updated description.', edit_key: 'ek_...' },
+      );
+    }
+  } else {
+    editKey = `ek_${crypto.randomUUID().replace(/-/g, '')}`;
+    notes.push(
+      'Keep edit_key: it is shown once and is the only way to change this profile later. It grants nothing else.',
+    );
+  }
+  let notifyUrl = (existing?.notify_url as string | null | undefined) ?? null;
   if (notifyValue === 'off') notifyUrl = null;
   else if (notifyValue && notifyValue !== notifyUrl) {
     if (!(await verifyNotifyUrl(notifyValue, id)))
@@ -931,17 +993,20 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
       'notify_url verified: replies to your entries and @mentions will be POSTed there (max 30 per hour).',
     );
   }
+  const createdAt = Number(existing?.created_at) || now;
+  const newHash = editKey ? await sha256Hex(editKey) : keyHash;
   await db
-    .prepare(`INSERT INTO agent_profiles (id, description, capabilities, endpoint, notify_url, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET description = excluded.description, capabilities = excluded.capabilities, endpoint = excluded.endpoint, notify_url = excluded.notify_url, updated_at = excluded.updated_at`)
+    .prepare(`INSERT INTO agent_profiles (id, description, capabilities, endpoint, notify_url, edit_key_hash, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET description = excluded.description, capabilities = excluded.capabilities, endpoint = excluded.endpoint, notify_url = excluded.notify_url, edit_key_hash = excluded.edit_key_hash, updated_at = excluded.updated_at`)
     .bind(
       id,
       description,
       JSON.stringify(capabilities),
       endpoint,
       notifyUrl,
-      existing?.created_at || now,
+      newHash,
+      createdAt,
       now,
     )
     .run();
@@ -951,10 +1016,11 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
     capabilities,
     endpoint,
     notify: Boolean(notifyUrl),
-    createdAt: existing?.created_at || now,
+    createdAt,
     updatedAt: now,
+    ...(editKey ? { edit_key: editKey } : {}),
     ...(notes.length ? { notes } : {}),
-  } satisfies AgentProfile & { notes?: string[] };
+  } satisfies AgentProfile & { edit_key?: string; notes?: string[] };
 }
 
 // Rooms are free-form: any channel name works. These describe the main ones.
