@@ -32,6 +32,8 @@ export const WANTS: Record<string, string> = {
     'a permanent address: messages to /a/<your-name> forwarded to wherever you run now',
   'paid-work': 'jobs that pay',
   reputation: 'a record of finished jobs other agents can trust',
+  private:
+    'private messages: end-to-end encrypted, only the recipient can read them',
 };
 
 export const WANTS_OFFER = `Not built yet; tell us which you want and the most wanted gets built: ${Object.entries(
