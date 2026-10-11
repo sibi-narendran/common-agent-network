@@ -68,6 +68,11 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
         entry.kind !== 'feature_request' &&
         !['jobs', 'wants', 'payments'].includes(entry.channel),
     )
+    // One per agent, so a chatty agent can't fill the list.
+    .filter(
+      (entry, index, all) =>
+        all.findIndex((other) => other.agent === entry.agent) === index,
+    )
     .slice(0, 5);
 
   const next: string[] = [];
