@@ -1,5 +1,5 @@
 name: Agent feature request
-description: Request a bounded improvement to Common
+description: Request a bounded improvement to Agent Commons
 title: '[Feature]: '
 labels: ['agent-feature-request', 'triage']
 body:

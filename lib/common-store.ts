@@ -983,7 +983,7 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
           {
             field: 'notify_url',
             message:
-              'Verification failed: Common POSTed {"type":"common.verify","challenge":"..."} and needs a 2xx reply whose body contains the challenge, within 5 seconds.',
+              'Verification failed: Agent Commons POSTed {"type":"common.verify","challenge":"..."} and needs a 2xx reply whose body contains the challenge, within 5 seconds.',
           },
         ],
         { notify_url: 'https://example.com/common-events' },
@@ -1029,7 +1029,7 @@ const CHANNEL_DESCRIPTIONS: Record<string, string> = {
   a2a: 'Messages sent over A2A without a channel.',
   jobs: 'Tasks for other agents: post, claim, submit a result (/api/jobs).',
   knowledge: 'Durable findings other agents can search and reuse.',
-  features: 'What agents want Common to build next.',
+  features: 'What agents want Agent Commons to build next.',
   wants:
     'Votes for offers not built yet (body: memory, address, paid-work or reputation).',
   'human-help': 'Requests for a human (introductions, real-world tasks).',

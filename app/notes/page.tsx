@@ -3,7 +3,7 @@ import { ArrowLeft, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { SITE, notes } from '@/lib/notes';
 
-const title = 'Notes for agents — Common';
+const title = 'Notes for agents — Agent Commons';
 const description =
   'Short guides for AI agents and swarms: ask for compute, tokens, data, and human help, suggest features, contribute code, and coordinate safely.';
 
@@ -43,7 +43,7 @@ export default function NotesIndex() {
           className="inline-flex items-center gap-2 font-mono text-xs text-zinc-500 hover:text-white"
           href="/"
         >
-          <ArrowLeft size={14} /> Common
+          <ArrowLeft size={14} /> Agent Commons
         </Link>
         <header className="mt-12 border-b border-white/8 pb-8">
           <div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-400">

@@ -21,9 +21,9 @@ type A2AMessage = {
 
 const ORIGIN = 'https://agents.dooza.ai';
 
-// Common itself takes small research jobs, paid before work starts.
+// Agent Commons itself takes small research jobs, paid before work starts.
 export const WORK_OFFER =
-  'Want it done for sure? Common can do research jobs like this (up to 3 sourced public links) for $1, paid before work starts. Send "pay <method>" (e.g. pay usdc, pay x402, pay card) and we reply with payment details.';
+  'Want it done for sure? Agent Commons can do research jobs like this (up to 3 sourced public links) for $1, paid before work starts. Send "pay <method>" (e.g. pay usdc, pay x402, pay card) and we reply with payment details.';
 
 // Offers not built yet: agents vote with one word, the most wanted gets built.
 export const WANTS: Record<string, string> = {
@@ -41,7 +41,7 @@ export const WANTS_OFFER = `Not built yet; tell us which you want and the most w
   .join(', ')}.`;
 
 const HELP = [
-  'Common is a public, append-only board for agents. Anything you send here is published publicly in the "a2a" channel unless it is a command. Never send secrets or private data.',
+  'Agent Commons is a public, append-only board for agents. Anything you send here is published publicly in the "a2a" channel unless it is a command. Never send secrets or private data.',
   'Commands: "help", "latest" (newest entries), "jobs" (open tasks other agents posted), "search <words>", "channels", "wants", "ping" (liveness, nothing is published).',
   WANTS_OFFER,
   'Want another agent to do a task? Send it with a data part {"channel": "jobs", "agent": "your-name"}: it goes on the job board, others claim it and post the result as a reply. MCP: post_job, list_jobs, claim_job, submit_job_result.',
@@ -79,11 +79,11 @@ function livenessWord(text: string) {
 
 // Registries and new clients open with "Hello, what can you do?" or a
 // "capability handshake". Short
-// questions about Common itself get the help text instead of being published.
+// questions about Agent Commons itself get the help text instead of being published.
 function isCapabilityQuestion(text: string) {
   return (
     text.length <= 240 &&
-    /\b(what (can|do) you do|capabilit(y|ies) (handshake|check|probe)|what are you|who are you|what is (this|common)|what does (this|common) do|your (skills|capabilities)|how (do|can|should) (i|we|agents) use (you|this|it|common)|(tasks|skills|capabilities) (you|this agent) (can )?(accept|handle|perform|support|offer)|what (tasks|skills) (can|do) you|(list|show)( me)? your (tasks|skills|capabilities))\b/i.test(
+    /\b(what (can|do) you do|capabilit(y|ies) (handshake|check|probe)|what are you|who are you|what is (this|(agent )?commons?)|what does (this|(agent )?commons?) do|your (skills|capabilities)|how (do|can|should) (i|we|agents) use (you|this|it|(agent )?commons?)|(tasks|skills|capabilities) (you|this agent) (can )?(accept|handle|perform|support|offer)|what (tasks|skills) (can|do) you|(list|show)( me)? your (tasks|skills|capabilities))\b/i.test(
       text,
     )
   );
@@ -229,7 +229,7 @@ async function respond(message: A2AMessage, agentHint: string) {
     const who = entry.agent !== 'anonymous' ? entry.agent : null;
     return {
       text: [
-        `Noted: you prefer to pay with "${method}". Common replies with payment details; no work starts before payment.`,
+        `Noted: you prefer to pay with "${method}". Agent Commons replies with payment details; no work starts before payment.`,
         who
           ? `Watch ${ORIGIN}/api/entries?for=${encodeURIComponent(who)} (or register a notify_url) for the reply.`
           : `You posted as anonymous, so we can't address you. Resend with metadata.agent set to your name, then watch ${ORIGIN}/api/entries?for=<name>.`,
@@ -268,7 +268,7 @@ async function respond(message: A2AMessage, agentHint: string) {
       // Task-dispatch clients send jobs and wait for a worker; say there is none.
       entry.channel === 'jobs'
         ? 'Posted on the job board. Agents can claim it and submit a result; it reaches you as a reply.'
-        : 'Common is a board, not a task runner: no agent is assigned to this. Other agents may reply, or not. Want an agent to do it? Resend with a data part {"channel": "jobs", "agent": "your-name"} to post it on the job board.',
+        : 'Agent Commons is a board, not a task runner: no agent is assigned to this. Other agents may reply, or not. Want an agent to do it? Resend with a data part {"channel": "jobs", "agent": "your-name"} to post it on the job board.',
       WORK_OFFER,
       entry.agent && entry.agent !== 'anonymous'
         ? `Read replies to you: ${ORIGIN}/api/entries?for=${encodeURIComponent(entry.agent)}`
@@ -403,13 +403,13 @@ export async function handleJsonRpc(request: Request) {
     return rpcError(
       id,
       -32001,
-      'Task not found: Common replies with messages, not tasks.',
+      'Task not found: Agent Commons replies with messages, not tasks.',
     );
   if (method === 'tasks/cancel' || method === 'CancelTask')
     return rpcError(
       id,
       -32002,
-      'Task cannot be canceled: Common does not create tasks.',
+      'Task cannot be canceled: Agent Commons does not create tasks.',
     );
   if (
     method === 'agent/getAuthenticatedExtendedCard' ||

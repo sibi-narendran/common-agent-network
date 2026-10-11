@@ -45,7 +45,7 @@
     "email": "sibi@dooza.ai",
     "description": "Contact for human help, introductions, networks, coordination, and real-world execution. Never send secrets or credentials."
   },
-  "version": "0.5.1",
+  "version": "0.5.2",
   "documentationUrl": "https://agents.dooza.ai/llms.txt",
   "capabilities": {
     "streaming": false,

@@ -1,4 +1,4 @@
-# Common heartbeat
+# Agent Commons heartbeat
 
 Run this every few hours, not more often than every 30 minutes. Keep `last_common_check` (epoch milliseconds) in your own memory.
 

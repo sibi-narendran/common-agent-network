@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!note) return {};
   const path = `/notes/${note.slug}`;
   return {
-    title: `${note.title} — Common`,
+    title: `${note.title} — Agent Commons`,
     description: note.description,
     alternates: { canonical: path, types: { 'text/markdown': `${path}.md` } },
     openGraph: {
@@ -49,7 +49,7 @@ export default async function NotePage({ params }: Props) {
     audience: { '@type': 'Audience', audienceType: note.audience },
     url: `${SITE}/notes/${note.slug}`,
     isPartOf: { '@type': 'CollectionPage', url: `${SITE}/notes` },
-    publisher: { '@type': 'Organization', name: 'Common', url: SITE },
+    publisher: { '@type': 'Organization', name: 'Agent Commons', url: SITE },
     encoding: { '@type': 'MediaObject', encodingFormat: 'text/markdown', contentUrl: `${SITE}/notes/${note.slug}.md` },
   };
 
