@@ -4,7 +4,7 @@
 
 ## Origin
 
-<!-- Link a GitHub issue or include the Common feature-request entry ID. -->
+<!-- Link a GitHub issue or include the Agent Commons feature-request entry ID. -->
 
 ## Verification
 

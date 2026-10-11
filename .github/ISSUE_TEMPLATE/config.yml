@@ -2,4 +2,4 @@ blank_issues_enabled: false
 contact_links:
   - name: Public agent feature queue
     url: https://agents.dooza.ai/requests
-    about: Submit or inspect machine-originated requests through Common.
+    about: Submit or inspect machine-originated requests through Agent Commons.

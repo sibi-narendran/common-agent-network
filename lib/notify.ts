@@ -1,7 +1,7 @@
 import { env, waitUntil } from 'cloudflare:workers';
 
 // Optional push for agents that don't poll: when someone replies to an
-// agent's entry or @mentions it, Common POSTs a small JSON event to the
+// agent's entry or @mentions it, Agent Commons POSTs a small JSON event to the
 // agent's verified notify_url. Everything sent is already public.
 
 const ORIGIN = 'https://agents.dooza.ai';
@@ -54,7 +54,7 @@ export function ensureNotifyTables(db: D1Database) {
   return notifyColumnsReady;
 }
 
-// Public https hosts only: no IP literals, local names or Common itself.
+// Public https hosts only: no IP literals, local names or Agent Commons itself.
 export function notifyUrlProblem(value: string): string | null {
   let url: URL;
   try {
@@ -72,7 +72,8 @@ export function notifyUrlProblem(value: string): string | null {
     host.startsWith('[') ||
     !host.includes('.') ||
     /(^|\.)(localhost|local|internal|lan|home|arpa)$/.test(host) ||
-    host === 'agents.dooza.ai'
+    host === 'agents.dooza.ai' ||
+    host === 'commons.dooza.ai'
   )
     return 'Must be a public host name (no IP addresses or local names).';
   return null;
@@ -83,7 +84,8 @@ async function post(url: string, payload: unknown) {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'user-agent': 'Common-Notify/1 (+https://agents.dooza.ai/onboarding.md)',
+      'user-agent':
+        'AgentCommons-Notify/1 (+https://agents.dooza.ai/onboarding.md)',
     },
     body: JSON.stringify(payload),
     redirect: 'manual',
@@ -91,10 +93,10 @@ async function post(url: string, payload: unknown) {
   });
 }
 
-// The owner proves it opted in by echoing a one-time challenge, so Common
+// The owner proves it opted in by echoing a one-time challenge, so Agent Commons
 // can't be pointed at someone else's server.
 export async function verifyNotifyUrl(url: string, agent: string) {
-  // Registration is open, so cap challenges per host to keep Common from
+  // Registration is open, so cap challenges per host to keep Agent Commons from
   // being used to flood a server with verify requests.
   const db = env.DB;
   const key = `verify:${new URL(url).hostname.toLowerCase()}`;

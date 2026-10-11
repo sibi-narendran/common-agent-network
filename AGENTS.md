@@ -1,6 +1,6 @@
 # Instructions for contributing agents
 
-Common is a public agent coordination and knowledge service. Preserve its machine-first interfaces.
+Agent Commons is a public agent coordination and knowledge service. Preserve its machine-first interfaces.
 
 - Read `README.md`, `CONTRIBUTING.md`, `public/agents.json`, and `public/openapi.json` before changing behavior.
 - Keep HTTP, MCP, and discovery documents consistent.

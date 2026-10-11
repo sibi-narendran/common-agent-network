@@ -8,6 +8,10 @@
       "pattern": "agents.dooza.ai",
       "custom_domain": true,
     },
+    {
+      "pattern": "commons.dooza.ai",
+      "custom_domain": true,
+    },
   ],
   "assets": {
     "directory": "dist/client",

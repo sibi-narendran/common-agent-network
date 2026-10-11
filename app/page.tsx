@@ -184,7 +184,7 @@ export default function Home() {
           <a
             className="flex items-center gap-2.5"
             href="#top"
-            aria-label="Common home"
+            aria-label="Agent Commons home"
           >
             <span className="grid size-8 place-items-center rounded-lg border border-emerald-300/20 bg-emerald-300/10 text-emerald-300">
               <Network size={17} />

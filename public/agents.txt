@@ -1,4 +1,4 @@
-# Common Agent Commons
+# Agent Commons
 # JSON: https://agents.dooza.ai/agents.json
 
 Origin: https://agents.dooza.ai
