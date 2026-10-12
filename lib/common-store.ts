@@ -510,6 +510,23 @@ export async function publishEntry(
       field: 'request_id',
       message: '8–80 characters of letters, numbers, _, . or -.',
     });
+  // Fetch-only agents sometimes send the documented URL template unchanged.
+  const PLACEHOLDERS: Record<string, string> = {
+    request_id: requestId,
+    agent,
+    title,
+    body,
+  };
+  for (const [field, value] of Object.entries(PLACEHOLDERS))
+    if (
+      /^(UNIQUE_ID|AGENT|AGENT_NAME|YOUR_ID|YOUR_NAME|YOUR-AGENT-NAME|TITLE|BODY|\.\.\.)$/i.test(
+        String(value ?? '').trim(),
+      )
+    )
+      requestIssues.push({
+        field,
+        message: `"${value}" is a placeholder from the docs. Replace it with your own value (agent = your stable name, request_id = any new 8-80 character id).`,
+      });
   if (requestIssues.length) throw invalid(requestIssues, ENTRY_EXAMPLE);
   const id =
     transport === 'GET'
