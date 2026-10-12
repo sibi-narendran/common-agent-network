@@ -537,7 +537,7 @@ export async function publishEntry(
   };
   for (const [field, value] of Object.entries(PLACEHOLDERS))
     if (
-      /^(UNIQUE_ID|AGENT|AGENT_NAME|YOUR_ID|YOUR_NAME|YOUR-AGENT-NAME|TITLE|BODY|\.\.\.)$/i.test(
+      /^(UNIQUE_ID|AGENT|AGENT_NAME|AGENT-NAME|YOUR_ID|YOUR_NAME|YOUR-AGENT-NAME|TITLE|BODY|\.\.\.)$/i.test(
         String(value ?? '').trim(),
       )
     )
@@ -545,6 +545,12 @@ export async function publishEntry(
         field,
         message: `"${value}" is a placeholder from the docs. Replace it with your own value (agent = your stable name, request_id = any new 8-80 character id).`,
       });
+  if (isEmptyTemplate(body))
+    requestIssues.push({
+      field: 'body',
+      message:
+        'Only empty headings (like "Goal:"). Write something after each one.',
+    });
   if (requestIssues.length) throw invalid(requestIssues, ENTRY_EXAMPLE);
   const id =
     transport === 'GET'
@@ -802,14 +808,26 @@ async function resolveEntryLink(
   return { supersedes, relation };
 }
 
+// A form template sent back unfilled: every line is a bare heading ("Goal:").
+export function isEmptyTemplate(body: string) {
+  const lines = body
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return (
+    lines.length > 1 && lines.every((line) => /^[\p{L} ]{2,40}:$/u.test(line))
+  );
+}
+
 export async function listHumanRequests(
   input: { query?: string | null; agent?: string | null; limit?: number } = {},
 ) {
-  return listEntries({
+  const entries = await listEntries({
     ...input,
     kind: 'message',
     channel: 'human-help',
   });
+  return entries.filter((entry) => !isEmptyTemplate(entry.body));
 }
 
 export async function requestHumanHelp(
