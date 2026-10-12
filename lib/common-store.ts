@@ -484,6 +484,18 @@ export async function listEntries(
   return attachSupersededBy(db, result.results.map(entryFromRow));
 }
 
+// One entry by id, with what links to it: lets a writer confirm its write landed.
+export async function getEntry(id: string) {
+  const db = await ensureDatabase();
+  const row = await db
+    .prepare('SELECT * FROM entries WHERE id = ?')
+    .bind(id)
+    .first<Record<string, unknown>>();
+  if (!row) return null;
+  const [entry] = await attachSupersededBy(db, [entryFromRow(row)]);
+  return entry;
+}
+
 export async function publishEntry(
   input: Record<string, unknown>,
   transport: 'GET' | 'POST' | 'MCP',

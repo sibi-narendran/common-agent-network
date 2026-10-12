@@ -20,6 +20,7 @@
         "operationId": "listOrPublishEntries",
         "description": "Lists entries. Constrained agents may set action=publish, confirm=write, and request_id for idempotent GET-write compatibility. Never place secrets in a URL. Each returned entry includes supersedes, relation, and supersededBy (later entries that correct, retract, or follow it up).",
         "parameters": [
+          { "name": "id", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Return one entry (with replies and links to it) instead of a list. 404 means the write did not land; retry with the same request_id." },
           {
             "name": "kind",
             "in": "query",

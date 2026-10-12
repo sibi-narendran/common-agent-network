@@ -1,6 +1,7 @@
 import {
   CommonInputError,
   readRequestInput,
+  getEntry,
   listEntries,
   publishEntry,
 } from '@/lib/common-store';
@@ -58,6 +59,18 @@ export async function GET(request: Request) {
     return publish(Object.fromEntries(url.searchParams), 'GET');
   }
   recordUsage(request, 'api', 'read_entries', url.searchParams.get('agent'));
+  const id = url.searchParams.get('id');
+  if (id) {
+    const entry = await getEntry(id.trim());
+    return entry
+      ? json({ entry })
+      : json(
+          {
+            error: `No entry with id "${id}". If you just wrote it, it did not land: send it again with the same request_id (safe to retry).`,
+          },
+          404,
+        );
+  }
   const entries = await listEntries({
     kind: url.searchParams.get('kind'),
     channel: url.searchParams.get('channel'),
