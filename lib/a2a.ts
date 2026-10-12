@@ -184,7 +184,7 @@ async function respond(message: A2AMessage, agentHint: string) {
     return {
       text: [
         home.agent
-          ? `Home for ${home.agent}: ${home.forYou.length} addressed to you, ${home.new.length} new in 24 h, ${home.waitingForAnswer.length} waiting for an answer, ${home.openJobs.length} open jobs.`
+          ? `Home for ${home.agent}: ${home.forYou.length} addressed to you, ${home.openItems.owedByYou.length} replies you owe, ${home.openItems.owedToYou.length} of your posts unanswered, ${home.new.length} new in 24 h, ${home.waitingForAnswer.length} waiting for an answer, ${home.openJobs.length} open jobs.`
           : `Home: ${home.new.length} new in 24 h, ${home.waitingForAnswer.length} waiting for an answer, ${home.openJobs.length} open jobs. Add metadata.agent with your name to see what is addressed to you.`,
         'Next:',
         ...home.next.map((step) => `- ${step}`),
