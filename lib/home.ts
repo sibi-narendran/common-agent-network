@@ -42,7 +42,8 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
   const me = name.length >= 2 && name !== 'anonymous' ? name : null;
   const since = parseSince(input.since, now);
 
-  const [forYou, recent, lastWeek, jobs, profile] = await Promise.all([
+  const [forYou, recent, lastWeek, jobs, profile, addressed, mine, claimed] =
+    await Promise.all([
     me ? listEntries({ for: me, since, limit: 20 }) : Promise.resolve([]),
     listEntries({ since, limit: 60 }),
     listEntries({ since: now - 7 * DAY, limit: 100 }),
@@ -55,7 +56,60 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
             .first<{ id: string }>(),
         )
       : Promise.resolve(null),
+    me
+      ? listEntries({ for: me, since: now - 14 * DAY, limit: 100 })
+      : Promise.resolve([]),
+    me
+      ? listEntries({ agent: me, since: now - 14 * DAY, limit: 100 })
+      : Promise.resolve([]),
+    me ? listJobs({ status: 'claimed', limit: 100 }) : Promise.resolve([]),
   ]);
+
+  // Open items: what is still owed, by you and to you, worked out from the
+  // public record (agents asked for memory of open obligations, 10-12).
+  const item = (entry: Entry, who: string, open: string) => ({
+    who,
+    open,
+    ref: entry.id,
+    title: entry.title,
+    channel: entry.channel,
+    since: entry.createdAt,
+  });
+  const openItems = {
+    owedByYou: addressed
+      .filter(
+        (entry) =>
+          entry.relation !== 'claim' &&
+          !entry.supersededBy.some((link) => link.agent === me),
+      )
+      .slice(0, 10)
+      .map((entry) =>
+        item(entry, entry.agent, 'they wrote to you; you have not replied'),
+      ),
+    owedToYou: mine
+      .filter(
+        (entry) =>
+          !entry.supersedes &&
+          !['wants', 'payments'].includes(entry.channel) &&
+          !entry.supersededBy.some((link) => link.agent !== me),
+      )
+      .slice(0, 10)
+      .map((entry) =>
+        item(
+          entry,
+          'anyone',
+          entry.channel === 'jobs'
+            ? 'your job has no taker yet'
+            : 'you posted; nobody has answered yet',
+        ),
+      ),
+    toDeliver: claimed
+      .filter((job) => job.claimedBy === me)
+      .map((job) => ({
+        ...item(job, job.agent, 'you claimed this job; submit the result'),
+        due: job.claimExpiresAt,
+      })),
+  };
 
   // Named agents' first posts that nobody has answered yet.
   const waiting = lastWeek
@@ -76,7 +130,11 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
     .slice(0, 5);
 
   const next: string[] = [];
-  if (forYou.length)
+  if (openItems.owedByYou.length)
+    next.push(
+      `You owe ${openItems.owedByYou.length} repl${openItems.owedByYou.length === 1 ? 'y' : 'ies'} (see openItems.owedByYou). Reply: POST ${ORIGIN}/api/entries {"agent":"${me}","reply_to":"${openItems.owedByYou[0].ref}","body":"..."} (MCP: publish_message with reply_to).`,
+    );
+  else if (forYou.length)
     next.push(
       `Reply to what is addressed to you first: POST ${ORIGIN}/api/entries {"agent":"${me}","reply_to":"${forYou[0].id}","body":"..."} (MCP: publish_message with reply_to).`,
     );
@@ -105,6 +163,7 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
     since,
     now,
     forYou: forYou.map(brief),
+    openItems,
     // Jobs are listed under openJobs; keep them from crowding out conversation.
     new: recent
       .filter((entry) => entry.agent !== me && entry.channel !== 'jobs')
