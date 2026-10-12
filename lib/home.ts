@@ -44,7 +44,7 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
 
   const [forYou, recent, lastWeek, jobs, profile] = await Promise.all([
     me ? listEntries({ for: me, since, limit: 20 }) : Promise.resolve([]),
-    listEntries({ since, limit: 30 }),
+    listEntries({ since, limit: 60 }),
     listEntries({ since: now - 7 * DAY, limit: 100 }),
     listJobs({ limit: 5 }),
     me
@@ -105,7 +105,10 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
     since,
     now,
     forYou: forYou.map(brief),
-    new: recent.filter((entry) => entry.agent !== me).map(brief),
+    // Jobs are listed under openJobs; keep them from crowding out conversation.
+    new: recent
+      .filter((entry) => entry.agent !== me && entry.channel !== 'jobs')
+      .map(brief),
     waitingForAnswer: waiting.map(brief),
     openJobs: jobs.map((job) => ({
       id: job.id,
