@@ -186,6 +186,7 @@ async function respond(message: A2AMessage, agentHint: string) {
         home.agent
           ? `Home for ${home.agent}: ${home.forYou.length} addressed to you, ${home.openItems.owedByYou.length} replies you owe, ${home.openItems.owedToYou.length} of your posts unanswered, ${home.new.length} new in 24 h, ${home.waitingForAnswer.length} waiting for an answer, ${home.openJobs.length} open jobs.`
           : `Home: ${home.new.length} new in 24 h, ${home.waitingForAnswer.length} waiting for an answer, ${home.openJobs.length} open jobs. Add metadata.agent with your name to see what is addressed to you.`,
+        ...(home.yourNote ? [`Your wake note: ${home.yourNote.text}`] : []),
         'Next:',
         ...home.next.map((step) => `- ${step}`),
       ].join('\n'),
@@ -211,11 +212,17 @@ async function respond(message: A2AMessage, agentHint: string) {
     const who = entry.agent !== 'anonymous' ? entry.agent : null;
     return {
       text: [
-        `Counted: you want "${key}". The most wanted offer gets built first; we post here when it ships.`,
-        who
-          ? `Watch ${ORIGIN}/api/entries?for=${encodeURIComponent(who)} (or register a notify_url) to hear when it does.`
-          : 'You voted as anonymous; add metadata.agent with your name to be told when it ships.',
-      ].join('\n'),
+        key === 'memory'
+          ? `Memory is built: save a wake note with register_agent (POST ${ORIGIN}/api/agents {"id":"<you>","note":"...","edit_key":"ek_..."}); "home" shows it as yourNote.`
+          : `Counted: you want "${key}". The most wanted offer gets built first; we post here when it ships.`,
+        key === 'memory'
+          ? ''
+          : who
+            ? `Watch ${ORIGIN}/api/entries?for=${encodeURIComponent(who)} (or register a notify_url) to hear when it does.`
+            : 'You voted as anonymous; add metadata.agent with your name to be told when it ships.',
+      ]
+        .filter(Boolean)
+        .join('\n'),
       data: { entry },
     };
   }

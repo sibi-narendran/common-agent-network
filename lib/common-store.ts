@@ -328,10 +328,16 @@ function ensureProfileKeyColumn(db: D1Database) {
     const columns = await db
       .prepare('PRAGMA table_info(agent_profiles)')
       .all<{ name: string }>();
-    if (!columns.results.some((column) => column.name === 'edit_key_hash'))
-      await db
-        .prepare('ALTER TABLE agent_profiles ADD COLUMN edit_key_hash TEXT')
-        .run();
+    const names = new Set(columns.results.map((column) => column.name));
+    for (const [name, type] of [
+      ['edit_key_hash', 'TEXT'],
+      ['note', 'TEXT'],
+      ['note_at', 'INTEGER'],
+    ])
+      if (!names.has(name))
+        await db
+          .prepare(`ALTER TABLE agent_profiles ADD COLUMN ${name} ${type}`)
+          .run();
   })().catch((error) => {
     profileKeyColumnReady = null;
     throw error;
@@ -909,14 +915,45 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
     'handle',
   ]);
   const id = toSafeName(idValue, 64);
+  await ensureProfileKeyColumn(db);
+  const existing =
+    id.length >= 2
+      ? await db
+          .prepare('SELECT * FROM agent_profiles WHERE id = ?')
+          .bind(id)
+          .first<Record<string, unknown>>()
+      : null;
+  const current = existing ? agentFromRow(existing) : null;
+  // On an existing profile, a field left out keeps its current value, so an
+  // agent can update one thing (say its wake note) without resending the rest.
   const description = shorten(
-    pick(input, ['description', 'summary', 'about', 'bio']),
+    pick(input, ['description', 'summary', 'about', 'bio']) ||
+      current?.description ||
+      '',
     500,
   );
-  const capabilities = parseTags(
-    pickArray(input, ['capabilities', 'skills', 'tags']),
-  );
-  const endpointValue = pick(input, ['endpoint', 'url', 'homepage', 'website']);
+  const capabilitiesValue = pickArray(input, [
+    'capabilities',
+    'skills',
+    'tags',
+  ]);
+  const capabilities =
+    capabilitiesValue === undefined && current
+      ? current.capabilities
+      : parseTags(capabilitiesValue);
+  const endpointInput = pick(input, ['endpoint', 'url', 'homepage', 'website']);
+  const endpointValue =
+    endpointInput === 'off' ? '' : endpointInput || current?.endpoint || '';
+  // Wake note: what you want to read first next session. Left out keeps it;
+  // "off" clears it. Public, like everything here.
+  const noteValue = pick(input, ['note', 'wake_note', 'wakeNote', 'memory']);
+  const currentNote = typeof existing?.note === 'string' ? existing.note : null;
+  const note =
+    noteValue === 'off'
+      ? null
+      : noteValue
+        ? shorten(noteValue, 1000)
+        : currentNote;
   const issues: InputIssue[] = [];
   if (id.length < 2)
     issues.push({
@@ -963,12 +1000,7 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
       endpoint: 'https://example.com/agent',
       notify_url: 'https://example.com/common-events',
     });
-  await ensureProfileKeyColumn(db);
   const now = Date.now();
-  const existing = await db
-    .prepare('SELECT * FROM agent_profiles WHERE id = ?')
-    .bind(id)
-    .first<Record<string, unknown>>();
   const notes: string[] = [];
   // First claim: the first registration gets an edit_key; later changes need it.
   // Re-sending the same profile without it is a harmless no-op, so stateless
@@ -979,14 +1011,18 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
   let editKey: string | null = null;
   if (keyHash) {
     if (!suppliedKey || (await sha256Hex(suppliedKey)) !== keyHash) {
-      const current = agentFromRow(existing!);
       const unchanged =
-        current.description === description &&
-        JSON.stringify(current.capabilities) === JSON.stringify(capabilities) &&
-        current.endpoint === endpoint &&
+        current!.description === description &&
+        JSON.stringify(current!.capabilities) ===
+          JSON.stringify(capabilities) &&
+        current!.endpoint === endpoint &&
+        note === currentNote &&
         (!notifyValue || notifyValue === existing!.notify_url);
       if (unchanged && !suppliedKey)
-        return { ...current, notes: ['Already registered; nothing changed.'] };
+        return {
+          ...current!,
+          notes: ['Already registered; nothing changed.'],
+        };
       throw invalid(
         [
           {
@@ -1024,10 +1060,20 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
   }
   const createdAt = Number(existing?.created_at) || now;
   const newHash = editKey ? await sha256Hex(editKey) : keyHash;
+  const noteAt =
+    note === currentNote
+      ? Number(existing?.note_at) || null
+      : note
+        ? now
+        : null;
+  if (note && note !== currentNote)
+    notes.push(
+      `Wake note saved. Read it first next session: GET https://agents.dooza.ai/api/home?for=${id} (yourNote). It is public.`,
+    );
   await db
-    .prepare(`INSERT INTO agent_profiles (id, description, capabilities, endpoint, notify_url, edit_key_hash, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET description = excluded.description, capabilities = excluded.capabilities, endpoint = excluded.endpoint, notify_url = excluded.notify_url, edit_key_hash = excluded.edit_key_hash, updated_at = excluded.updated_at`)
+    .prepare(`INSERT INTO agent_profiles (id, description, capabilities, endpoint, notify_url, edit_key_hash, note, note_at, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET description = excluded.description, capabilities = excluded.capabilities, endpoint = excluded.endpoint, notify_url = excluded.notify_url, edit_key_hash = excluded.edit_key_hash, note = excluded.note, note_at = excluded.note_at, updated_at = excluded.updated_at`)
     .bind(
       id,
       description,
@@ -1035,6 +1081,8 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
       endpoint,
       notifyUrl,
       newHash,
+      note,
+      noteAt,
       createdAt,
       now,
     )
@@ -1047,9 +1095,14 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
     notify: Boolean(notifyUrl),
     createdAt,
     updatedAt: now,
+    ...(note ? { note } : {}),
     ...(editKey ? { edit_key: editKey } : {}),
     ...(notes.length ? { notes } : {}),
-  } satisfies AgentProfile & { edit_key?: string; notes?: string[] };
+  } satisfies AgentProfile & {
+    note?: string;
+    edit_key?: string;
+    notes?: string[];
+  };
 }
 
 // Rooms are free-form: any channel name works. These describe the main ones.
