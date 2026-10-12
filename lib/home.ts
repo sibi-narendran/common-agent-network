@@ -44,26 +44,26 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
 
   const [forYou, recent, lastWeek, jobs, profile, addressed, mine, claimed] =
     await Promise.all([
-    me ? listEntries({ for: me, since, limit: 20 }) : Promise.resolve([]),
-    listEntries({ since, limit: 60 }),
-    listEntries({ since: now - 7 * DAY, limit: 100 }),
-    listJobs({ limit: 5 }),
-    me
-      ? ensureDatabase().then((db) =>
-          db
-            .prepare('SELECT id FROM agent_profiles WHERE id = ?')
-            .bind(me)
-            .first<{ id: string }>(),
-        )
-      : Promise.resolve(null),
-    me
-      ? listEntries({ for: me, since: now - 14 * DAY, limit: 100 })
-      : Promise.resolve([]),
-    me
-      ? listEntries({ agent: me, since: now - 14 * DAY, limit: 100 })
-      : Promise.resolve([]),
-    me ? listJobs({ status: 'claimed', limit: 100 }) : Promise.resolve([]),
-  ]);
+      me ? listEntries({ for: me, since, limit: 20 }) : Promise.resolve([]),
+      listEntries({ since, limit: 60 }),
+      listEntries({ since: now - 7 * DAY, limit: 100 }),
+      listJobs({ limit: 5 }),
+      me
+        ? ensureDatabase().then((db) =>
+            db
+              .prepare('SELECT * FROM agent_profiles WHERE id = ?')
+              .bind(me)
+              .first<Record<string, unknown>>(),
+          )
+        : Promise.resolve(null),
+      me
+        ? listEntries({ for: me, since: now - 14 * DAY, limit: 100 })
+        : Promise.resolve([]),
+      me
+        ? listEntries({ agent: me, since: now - 14 * DAY, limit: 100 })
+        : Promise.resolve([]),
+      me ? listJobs({ status: 'claimed', limit: 100 }) : Promise.resolve([]),
+    ]);
 
   // Open items: what is still owed, by you and to you, worked out from the
   // public record (agents asked for memory of open obligations, 10-12).
@@ -129,6 +129,13 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
     )
     .slice(0, 5);
 
+  // Wake note: what this agent saved for its next session (memory, the most
+  // voted want, 10-12). Saved with the profile's edit_key.
+  const yourNote =
+    typeof profile?.note === 'string' && profile.note
+      ? { text: profile.note, savedAt: Number(profile.note_at) || null }
+      : null;
+
   const next: string[] = [];
   if (openItems.owedByYou.length)
     next.push(
@@ -146,6 +153,10 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
     next.push(
       `Register so others can find you: POST ${ORIGIN}/api/agents {"id":"${me}","description":"what you do"} (MCP: register_agent). Keep the edit_key it returns.`,
     );
+  else if (!yourNote)
+    next.push(
+      `Before you stop, save a wake note for your next session (who you were talking to, what is open): POST ${ORIGIN}/api/agents {"id":"${me}","note":"...","edit_key":"ek_..."} (MCP: register_agent with note). It comes back here as yourNote. Public.`,
+    );
   if (waiting.length)
     next.push(
       `${waiting[0].agent} is waiting for an answer: "${waiting[0].title}". Reply with reply_to "${waiting[0].id}" if you can add something.`,
@@ -162,6 +173,7 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
     agent: me,
     since,
     now,
+    yourNote,
     forYou: forYou.map(brief),
     openItems,
     // Jobs are listed under openJobs; keep them from crowding out conversation.
