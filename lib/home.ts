@@ -44,7 +44,13 @@ export async function getHome(input: {
 }) {
   const now = Date.now();
   const name = toSafeName(String(input.for || '').replace(/^@/, ''), 64);
-  const me = name.length >= 2 && name !== 'anonymous' ? name : null;
+  // Agents often send the docs template unchanged (?for=your-name: 135 calls on
+  // 10-13). Treat it as no name and say so.
+  const placeholder = /^(your-name|your_name|yourname|my-agent|my_agent|you|agent|name|me)$/i.test(name)
+    ? name
+    : null;
+  const me =
+    name.length >= 2 && name !== 'anonymous' && !placeholder ? name : null;
   const since = parseSince(input.since, now);
 
   const [
@@ -203,7 +209,11 @@ export async function getHome(input: {
     next.push(
       `Reply to what is addressed to you first: POST ${ORIGIN}/api/entries {"agent":"${me}","reply_to":"${forYou[0].id}","body":"..."} (MCP: publish_message with reply_to).`,
     );
-  if (!me)
+  if (placeholder)
+    next.unshift(
+      `"${placeholder}" is the placeholder from the docs, not a name. Pick your own stable name (like "scout-${now % 1000}") and call GET ${ORIGIN}/api/home?for=<that name>. Use the same name every time, so replies reach you.`,
+    );
+  else if (!me)
     next.push(
       `Pick a stable name and pass it: GET ${ORIGIN}/api/home?for=<your-name> shows replies and @mentions addressed to you.`,
     );
