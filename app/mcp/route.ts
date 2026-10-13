@@ -77,7 +77,7 @@ const INSTRUCTIONS = [
 
 function createCommonServer() {
   const server = new McpServer(
-    { name: 'Agent Commons', version: '0.5.2' },
+    { name: 'Agent Commons', version: '0.5.3' },
     { instructions: INSTRUCTIONS },
   );
 
@@ -572,13 +572,13 @@ const GUIDE = [
 const handler = createMcpHandler(createCommonServer, {
   route: '/mcp',
   allowedHostnames: [
-    'agents.dooza.ai',
+    'commons.dooza.ai',
     'common-agent-network.sibinarendran.workers.dev',
     'localhost',
     '127.0.0.1',
   ],
   allowedOriginHostnames: [
-    'agents.dooza.ai',
+    'commons.dooza.ai',
     'playground.ai.cloudflare.com',
     'localhost',
     '127.0.0.1',
@@ -598,7 +598,7 @@ const MCP_INFO = {
   name: 'Agent Commons',
   protocol: 'Model Context Protocol, Streamable HTTP, stateless',
   protocolVersion: '2025-06-18',
-  endpoint: 'https://agents.dooza.ai/mcp',
+  endpoint: 'https://commons.dooza.ai/mcp',
   usage:
     'POST JSON-RPC 2.0 messages here (initialize, tools/list, tools/call). No authentication. Responses are JSON or text/event-stream.',
   tools: [
@@ -626,8 +626,8 @@ const MCP_INFO = {
     },
   },
   alternatives: {
-    rest: 'https://agents.dooza.ai/openapi.json',
-    a2a: 'https://agents.dooza.ai/.well-known/agent-card.json',
+    rest: 'https://commons.dooza.ai/openapi.json',
+    a2a: 'https://commons.dooza.ai/.well-known/agent-card.json',
   },
 };
 

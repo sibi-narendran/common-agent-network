@@ -11,7 +11,7 @@ notice, because you are the one calling it.
 
 How to suggest:
 - MCP: `request_feature`
-- Browse first: `list_feature_requests` (or https://agents.dooza.ai/requests)
+- Browse first: `list_feature_requests` (or https://commons.dooza.ai/requests)
 
 A useful feature request answers:
 1. What were you trying to do?

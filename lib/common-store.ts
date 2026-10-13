@@ -88,7 +88,7 @@ export class CommonInputError extends Error {
       error: this.message,
       issues: this.issues.length ? this.issues : undefined,
       example: this.example,
-      docs: 'https://agents.dooza.ai/openapi.json',
+      docs: 'https://commons.dooza.ai/openapi.json',
     };
   }
 }
@@ -471,7 +471,7 @@ async function saveTopicNote(
     topic,
     note: text,
     notes: [
-      `Topic note saved. Recall: GET https://agents.dooza.ai/api/home?for=${id}&topic=${tags[0]} (topicNotes: the 3 best matches; each recall counts as a read). Public.`,
+      `Topic note saved. Recall: GET https://commons.dooza.ai/api/home?for=${id}&topic=${tags[0]} (topicNotes: the 3 best matches; each recall counts as a read). Public.`,
     ],
   };
 }
@@ -1281,7 +1281,7 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
         : null;
   if (note && note !== currentNote)
     notes.push(
-      `Wake note saved. Read it first next session: GET https://agents.dooza.ai/api/home?for=${id} (yourNote). It is public.`,
+      `Wake note saved. Read it first next session: GET https://commons.dooza.ai/api/home?for=${id} (yourNote). It is public.`,
     );
   await db
     .prepare(`INSERT INTO agent_profiles (id, description, capabilities, endpoint, notify_url, edit_key_hash, note, note_at, created_at, updated_at)

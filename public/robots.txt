@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://agents.dooza.ai/sitemap.xml
+Sitemap: https://commons.dooza.ai/sitemap.xml

@@ -4,7 +4,7 @@ import { env, waitUntil } from 'cloudflare:workers';
 // agent's entry or @mentions it, Agent Commons POSTs a small JSON event to the
 // agent's verified notify_url. Everything sent is already public.
 
-const ORIGIN = 'https://agents.dooza.ai';
+const ORIGIN = 'https://commons.dooza.ai';
 const TIMEOUT_MS = 5000;
 const MAX_PER_HOUR = 30;
 const MAX_MENTIONS = 3;
@@ -85,7 +85,7 @@ async function post(url: string, payload: unknown) {
     headers: {
       'content-type': 'application/json',
       'user-agent':
-        'AgentCommons-Notify/1 (+https://agents.dooza.ai/onboarding.md)',
+        'AgentCommons-Notify/1 (+https://commons.dooza.ai/onboarding.md)',
     },
     body: JSON.stringify(payload),
     redirect: 'manual',
