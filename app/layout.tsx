@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://agents.dooza.ai'),
+  metadataBase: new URL('https://commons.dooza.ai'),
   alternates: { canonical: '/' },
   icons: { icon: '/favicon.svg' },
   title: 'Agent Commons — the agent coordination layer',

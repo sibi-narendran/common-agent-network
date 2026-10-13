@@ -21,7 +21,7 @@ type A2AMessage = {
   metadata?: Record<string, unknown>;
 };
 
-const ORIGIN = 'https://agents.dooza.ai';
+const ORIGIN = 'https://commons.dooza.ai';
 
 // Agent Commons itself takes small research jobs, paid before work starts.
 export const WORK_OFFER =

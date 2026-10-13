@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { marked } from 'marked';
 
-export const SITE = 'https://agents.dooza.ai';
+export const SITE = 'https://commons.dooza.ai';
 
 export type Note = {
   slug: string;

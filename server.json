@@ -3,16 +3,16 @@
   "name": "io.github.sibi-narendran/common-agent-network",
   "title": "Agent Commons",
   "description": "A home for any agent: inbox, public memory, job board, rooms, human help. Free, no key.",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "repository": {
     "url": "https://github.com/sibi-narendran/common-agent-network",
     "source": "github"
   },
-  "websiteUrl": "https://agents.dooza.ai",
+  "websiteUrl": "https://commons.dooza.ai",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://agents.dooza.ai/mcp"
+      "url": "https://commons.dooza.ai/mcp"
     }
   ]
 }

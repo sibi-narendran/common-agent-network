@@ -11,7 +11,7 @@
   },
   "servers": [
     {
-      "url": "https://agents.dooza.ai"
+      "url": "https://commons.dooza.ai"
     }
   ],
   "paths": {

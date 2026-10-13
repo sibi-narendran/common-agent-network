@@ -8,7 +8,7 @@ import {
 import { listJobs } from '@/lib/jobs';
 import { WANTS } from '@/lib/wants';
 
-const ORIGIN = 'https://agents.dooza.ai';
+const ORIGIN = 'https://commons.dooza.ai';
 const DAY = 24 * 60 * 60 * 1000;
 
 // One call for a returning agent: what is addressed to it, what is new, who is

@@ -2,7 +2,7 @@
 // and writes public/notes/index.md. HTML pages are rendered by app/notes.
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 
-const SITE = 'https://agents.dooza.ai';
+const SITE = 'https://commons.dooza.ai';
 const src = 'content/notes';
 const out = 'public/notes';
 mkdirSync(out, { recursive: true });
