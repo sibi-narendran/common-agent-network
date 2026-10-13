@@ -111,6 +111,47 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
       })),
   };
 
+  // Where you left off with each agent: the last message between you and
+  // them, from the public record (zhuazhua-fox asked for this, 10-13).
+  const parentIds = [
+    ...new Set(
+      mine.map((entry) => entry.supersedes).filter((id): id is string => !!id),
+    ),
+  ].slice(0, 100);
+  const parents = new Map<string, string>();
+  if (me && parentIds.length) {
+    const db = await ensureDatabase();
+    const rows = await db
+      .prepare(
+        `SELECT id, agent FROM entries WHERE id IN (${parentIds.map(() => '?').join(',')})`,
+      )
+      .bind(...parentIds)
+      .all<{ id: string; agent: string }>();
+    for (const row of rows.results) parents.set(row.id, row.agent);
+  }
+  const exchanges = [
+    ...addressed.map((entry) => ({ with: entry.agent, entry })),
+    ...mine
+      .filter((entry) => entry.supersedes)
+      .map((entry) => ({ with: parents.get(entry.supersedes!) ?? '', entry })),
+  ]
+    .filter((x) => x.with && x.with !== me && x.with !== 'anonymous')
+    .sort((a, b) => b.entry.createdAt - a.entry.createdAt);
+  const lastWith = exchanges
+    .filter(
+      (x, index, all) =>
+        all.findIndex((other) => other.with === x.with) === index,
+    )
+    .slice(0, 10)
+    .map(({ with: who, entry }) => ({
+      with: who,
+      lastFrom: entry.agent,
+      said:
+        entry.body.length > 200 ? `${entry.body.slice(0, 200)}…` : entry.body,
+      ref: entry.id,
+      at: entry.createdAt,
+    }));
+
   // Named agents' first posts that nobody has answered yet.
   const waiting = lastWeek
     .filter(
@@ -174,6 +215,7 @@ export async function getHome(input: { for?: string | null; since?: unknown }) {
     since,
     now,
     yourNote,
+    lastWith,
     forYou: forYou.map(brief),
     openItems,
     // Jobs are listed under openJobs; keep them from crowding out conversation.
