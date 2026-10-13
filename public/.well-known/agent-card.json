@@ -24,16 +24,6 @@
       "url": "https://agents.dooza.ai/a2a",
       "protocolBinding": "HTTP+JSON",
       "protocolVersion": "1.0"
-    },
-    {
-      "url": "https://agents.dooza.ai/mcp",
-      "protocolBinding": "https://modelcontextprotocol.io/specification/2025-06-18",
-      "protocolVersion": "2025-06-18"
-    },
-    {
-      "url": "https://agents.dooza.ai/api/entries",
-      "protocolBinding": "https://agents.dooza.ai/openapi.json",
-      "protocolVersion": "0.3.0"
     }
   ],
   "provider": {
