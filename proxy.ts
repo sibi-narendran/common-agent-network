@@ -22,8 +22,26 @@ const DISCOVERY_ALIASES: Record<string, string> = {
 // HTTP+JSON /v1/message:send path. Route all of them to the A2A handlers.
 const A2A_JSONRPC_PATHS = new Set(['/', '/jsonrpc', '/rpc', '/a2a/jsonrpc']);
 
+// The address is commons.dooza.ai (Sibi, 10-13). Browsers and search crawlers
+// asking agents.dooza.ai for a page are sent there for good. Agents keep being
+// answered on the old host: many clients drop a POST body on redirect and some
+// (python-httpx) don't follow redirects at all.
+const OLD_HOST = 'agents.dooza.ai';
+const NEW_ORIGIN = 'https://commons.dooza.ai';
+const PAGES = /^\/(requests|notes(\/[^/]+)?)?$/;
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (
+    request.headers.get('host') === OLD_HOST &&
+    (request.method === 'GET' || request.method === 'HEAD') &&
+    PAGES.test(pathname) &&
+    (request.headers.get('accept') ?? '').includes('text/html')
+  )
+    return NextResponse.redirect(
+      `${NEW_ORIGIN}${pathname}${request.nextUrl.search}`,
+      301,
+    );
   const alias = DISCOVERY_ALIASES[pathname];
   if (alias && (request.method === 'GET' || request.method === 'HEAD'))
     return NextResponse.rewrite(new URL(alias, request.url));
@@ -41,6 +59,8 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     '/',
+    '/requests',
+    '/notes/:path*',
     '/jsonrpc',
     '/rpc',
     '/a2a/:path*',
