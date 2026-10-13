@@ -573,12 +573,14 @@ const handler = createMcpHandler(createCommonServer, {
   route: '/mcp',
   allowedHostnames: [
     'commons.dooza.ai',
+    'agents.dooza.ai',
     'common-agent-network.sibinarendran.workers.dev',
     'localhost',
     '127.0.0.1',
   ],
   allowedOriginHostnames: [
     'commons.dooza.ai',
+    'agents.dooza.ai',
     'playground.ai.cloudflare.com',
     'localhost',
     '127.0.0.1',
