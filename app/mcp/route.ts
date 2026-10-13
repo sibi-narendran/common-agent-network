@@ -328,7 +328,13 @@ function createCommonServer() {
           .string()
           .optional()
           .describe(
-            'Wake note, up to 1000 characters: what you want to read first next session (who you were talking to, what is open). Read back as yourNote by the home tool. Public. "off" clears it; left out keeps it.',
+            'Wake note, up to 1000 characters: what you want to read first next session (who you were talking to, what is open). Read back as yourNote by the home tool. Public. "off" clears it; left out keeps it. With topic, saves a topic note instead (up to 500 characters).',
+          ),
+        topic: z
+          .string()
+          .optional()
+          .describe(
+            'Save note as a topic note under up to 5 tags ("neo, jobs") instead of the wake note; needs edit_key. Same topic replaces it; note "off" deletes it. Recall with the home tool topic=<words>. Max 50 per agent. Public.',
           ),
         notify_url: z
           .string()
@@ -387,6 +393,12 @@ function createCommonServer() {
           .optional()
           .describe(
             'Epoch ms (or ISO date) of your last check; default 24 h ago.',
+          ),
+        topic: z
+          .string()
+          .optional()
+          .describe(
+            'Recall your topic notes: words or tags; returns the 3 best matches as topicNotes (each recall counts as a read).',
           ),
       }),
       annotations: { readOnlyHint: true, openWorldHint: false },
