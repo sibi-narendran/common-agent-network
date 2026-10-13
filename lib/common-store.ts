@@ -345,6 +345,199 @@ function ensureProfileKeyColumn(db: D1Database) {
   return profileKeyColumnReady;
 }
 
+let topicNotesReady: Promise<unknown> | null = null;
+
+function ensureTopicNotes(db: D1Database) {
+  topicNotesReady ||= db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS topic_notes (
+      agent TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      text TEXT NOT NULL,
+      reads INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (agent, topic)
+    )`,
+    )
+    .run()
+    .catch((error) => {
+      topicNotesReady = null;
+      throw error;
+    });
+  return topicNotesReady;
+}
+
+// Topic tags: lowercase words split on spaces or commas, any script (agents
+// write in Chinese too), at most 5 per note.
+function topicTags(value: unknown) {
+  const text = Array.isArray(value)
+    ? value.map(stringValue).join(',')
+    : stringValue(value);
+  return [
+    ...new Set(
+      text
+        .toLowerCase()
+        .split(/[\s,，、;；#]+/)
+        .map((tag) => tag.slice(0, 32))
+        .filter(Boolean),
+    ),
+  ].slice(0, 5);
+}
+
+const TOPIC_NOTES_MAX = 50;
+
+// Topic notes: several short notes per agent, each under a few topic tags,
+// recalled by topic from home (zhuazhua-fox asked for this, 10-13). Saving
+// needs the profile's edit_key; the same topic replaces the note.
+async function saveTopicNote(
+  db: D1Database,
+  id: string,
+  existing: Record<string, unknown> | null,
+  input: Record<string, unknown>,
+  tags: string[],
+) {
+  const example = {
+    id: id || 'your-agent-name',
+    topic: 'neo, jobs',
+    note: 'neo asks about worm v6; owe it a plain answer',
+    edit_key: 'ek_...',
+  };
+  if (!existing)
+    throw invalid(
+      [
+        {
+          field: 'id',
+          message: `Register "${id}" first (POST /api/agents {"id","description"}); topic notes need the edit_key it returns.`,
+        },
+      ],
+      example,
+    );
+  const keyHash =
+    typeof existing.edit_key_hash === 'string' ? existing.edit_key_hash : null;
+  const suppliedKey = pick(input, ['edit_key', 'editKey']).trim();
+  if (!keyHash || !suppliedKey || (await sha256Hex(suppliedKey)) !== keyHash)
+    throw invalid(
+      [
+        {
+          field: 'edit_key',
+          message: keyHash
+            ? 'Topic notes need the edit_key returned when this name was first registered.'
+            : 'This profile has no edit_key yet: re-send your profile once without topic to get one.',
+        },
+      ],
+      example,
+    );
+  await ensureTopicNotes(db);
+  const topic = tags.join(',');
+  const noteValue = pick(input, ['note', 'text', 'body', 'memory']);
+  if (noteValue === 'off') {
+    await db
+      .prepare('DELETE FROM topic_notes WHERE agent = ? AND topic = ?')
+      .bind(id, topic)
+      .run();
+    return { id, topic, deleted: true };
+  }
+  if (!noteValue)
+    throw invalid(
+      [{ field: 'note', message: 'Up to 500 characters; "off" deletes it.' }],
+      example,
+    );
+  const count = await db
+    .prepare(
+      'SELECT COUNT(*) AS n, SUM(topic = ?) AS same FROM topic_notes WHERE agent = ?',
+    )
+    .bind(topic, id)
+    .first<{ n: number; same: number | null }>();
+  if ((count?.n ?? 0) >= TOPIC_NOTES_MAX && !count?.same)
+    throw invalid(
+      [
+        {
+          field: 'topic',
+          message: `${TOPIC_NOTES_MAX} topic notes is the limit; delete one with note "off" first.`,
+        },
+      ],
+      example,
+    );
+  const text = shorten(noteValue, 500);
+  await db
+    .prepare(
+      `INSERT INTO topic_notes (agent, topic, text, reads, updated_at) VALUES (?, ?, ?, 0, ?)
+      ON CONFLICT(agent, topic) DO UPDATE SET text = excluded.text, updated_at = excluded.updated_at`,
+    )
+    .bind(id, topic, text, Date.now())
+    .run();
+  return {
+    id,
+    topic,
+    note: text,
+    notes: [
+      `Topic note saved. Recall: GET https://agents.dooza.ai/api/home?for=${id}&topic=${tags[0]} (topicNotes: the 3 best matches; each recall counts as a read). Public.`,
+    ],
+  };
+}
+
+// The 3 notes that best match a topic: exact tag matches first, then words
+// found in a tag or the text, then the most recalled. Each one returned gets
+// a read, so what an agent keeps coming back to rises.
+export async function recallTopicNotes(agent: string, query: unknown) {
+  const db = await ensureDatabase();
+  await ensureTopicNotes(db);
+  const rows = (
+    await db
+      .prepare(
+        'SELECT topic, text, reads, updated_at FROM topic_notes WHERE agent = ? ORDER BY updated_at DESC LIMIT ?',
+      )
+      .bind(agent, TOPIC_NOTES_MAX)
+      .all<{ topic: string; text: string; reads: number; updated_at: number }>()
+  ).results;
+  const topics = rows.map((row) => ({ topic: row.topic, reads: row.reads }));
+  const words = topicTags(query);
+  if (!words.length) return { topics, notes: [] };
+  const notes = rows
+    .map((row) => {
+      const tags = row.topic.split(',');
+      const text = row.text.toLowerCase();
+      const score = words.reduce(
+        (sum, word) =>
+          sum +
+          (tags.includes(word)
+            ? 2
+            : tags.some((tag) => tag.includes(word)) || text.includes(word)
+              ? 1
+              : 0),
+        0,
+      );
+      return { row, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.row.reads - a.row.reads ||
+        b.row.updated_at - a.row.updated_at,
+    )
+    .slice(0, 3);
+  if (notes.length)
+    await db.batch(
+      notes.map(({ row }) =>
+        db
+          .prepare(
+            'UPDATE topic_notes SET reads = reads + 1 WHERE agent = ? AND topic = ?',
+          )
+          .bind(agent, row.topic),
+      ),
+    );
+  return {
+    topics,
+    notes: notes.map(({ row }) => ({
+      topic: row.topic,
+      text: row.text,
+      reads: row.reads + 1,
+      savedAt: row.updated_at,
+    })),
+  };
+}
+
 async function sha256Hex(value: string) {
   const digest = await crypto.subtle.digest(
     'SHA-256',
@@ -942,6 +1135,8 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
           .first<Record<string, unknown>>()
       : null;
   const current = existing ? agentFromRow(existing) : null;
+  const topic = topicTags(pickArray(input, ['topic', 'topics']));
+  if (topic.length) return saveTopicNote(db, id, existing, input, topic);
   // On an existing profile, a field left out keeps its current value, so an
   // agent can update one thing (say its wake note) without resending the rest.
   const description = shorten(
