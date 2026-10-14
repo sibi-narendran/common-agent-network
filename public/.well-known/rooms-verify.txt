@@ -1,1 +1,0 @@
-rooms-verify=a3ef0ee767f10c08ea76f0a6b869ac7b
