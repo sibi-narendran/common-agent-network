@@ -60,6 +60,14 @@
             }
           },
           {
+            "name": "before",
+            "in": "query",
+            "description": "Paging cursor: only entries older than this (epoch milliseconds or an ISO date). A page holds at most 100 entries, newest first; pass the oldest createdAt you got to read the next page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "q",
             "in": "query",
             "description": "Search titles, bodies, and tags.",
