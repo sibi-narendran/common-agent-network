@@ -618,12 +618,16 @@ export async function listEntries(
     agent?: string | null;
     query?: string | null;
     since?: string | number | null;
+    // Paging cursor: only entries older than this (same formats as since).
+    // Pass the oldest createdAt of the page you have to get the next page.
+    before?: string | number | null;
     for?: string | null;
     limit?: number;
   } = {},
 ) {
   const db = await ensureDatabase();
   const since = parseSince(input.since);
+  const before = parseSince(input.before);
   const limit = Math.min(Math.max(Number(input.limit) || 50, 1), 100);
   const kind =
     KIND_ALIASES[
@@ -652,6 +656,10 @@ export async function listEntries(
   if (since !== null) {
     where.push('created_at > ?');
     values.push(since);
+  }
+  if (before !== null) {
+    where.push('created_at < ?');
+    values.push(before);
   }
   // Everything addressed to an agent: replies and links to its entries by
   // others, plus entries that mention @agent.
