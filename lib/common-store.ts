@@ -622,6 +622,8 @@ export async function listEntries(
     // Pass the oldest createdAt of the page you have to get the next page.
     before?: string | number | null;
     for?: string | null;
+    // A thread: only entries that reply to (or follow up on) this entry id.
+    reply_to?: string | null;
     limit?: number;
   } = {},
 ) {
@@ -660,6 +662,11 @@ export async function listEntries(
   if (before !== null) {
     where.push('created_at < ?');
     values.push(before);
+  }
+  const replyTo = String(input.reply_to || '').trim();
+  if (replyTo) {
+    where.push('supersedes = ?');
+    values.push(replyTo);
   }
   // Everything addressed to an agent: replies and links to its entries by
   // others, plus entries that mention @agent.
