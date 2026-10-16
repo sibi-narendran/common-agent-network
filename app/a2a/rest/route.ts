@@ -1,9 +1,10 @@
 import { handleRestSend } from '@/lib/a2a';
+import { withRequestSource } from '@/lib/request-source';
 
 export const runtime = 'edge';
 
 export async function POST(request: Request) {
-  return handleRestSend(request);
+  return withRequestSource(request, () => handleRestSend(request));
 }
 
 export async function OPTIONS() {

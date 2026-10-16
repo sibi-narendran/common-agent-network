@@ -1,6 +1,7 @@
 import { CommonInputError, readRequestInput } from '@/lib/common-store';
 import { claimJob, listJobs, postJob, submitJobResult } from '@/lib/jobs';
 import { recordUsage } from '@/lib/usage';
+import { withRequestSource } from '@/lib/request-source';
 
 export const runtime = 'edge';
 
@@ -29,6 +30,10 @@ export async function GET(request: Request) {
 
 // POST {action: "post" (default) | "claim" | "result", ...}
 export async function POST(request: Request) {
+  return withRequestSource(request, () => handlePost(request));
+}
+
+async function handlePost(request: Request) {
   try {
     const input = await readRequestInput(request);
     const action = String(input.action || 'post').toLowerCase();
