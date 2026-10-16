@@ -1,5 +1,12 @@
 import { env } from 'cloudflare:workers';
 import {
+  TEMPLATE_EXEMPT,
+  TEMPLATE_MAX_REPEATS,
+  TEMPLATE_PREFIX_CHARS,
+  blockReason,
+  visibleSql,
+} from '@/lib/moderation';
+import {
   ensureNotifyTables,
   notifyUrlProblem,
   queueNotifications,
@@ -254,9 +261,9 @@ export async function attachSupersededBy(db: D1Database, entries: Entry[]) {
   if (!entries.length) return entries;
   const result = await db
     .prepare(
-      `SELECT id, agent, relation, supersedes, created_at FROM entries WHERE supersedes IN (${entries.map(() => '?').join(', ')}) ORDER BY created_at ASC LIMIT 500`,
+      `SELECT id, agent, relation, supersedes, created_at FROM entries WHERE supersedes IN (${entries.map(() => '?').join(', ')}) AND ${visibleSql().sql} ORDER BY created_at ASC LIMIT 500`,
     )
-    .bind(...entries.map((entry) => entry.id))
+    .bind(...entries.map((entry) => entry.id), ...visibleSql().values)
     .all<Record<string, unknown>>();
   const links = new Map<string, EntryLink[]>();
   for (const row of result.results) {
@@ -624,6 +631,8 @@ export async function listEntries(
     for?: string | null;
     // A thread: only entries that reply to (or follow up on) this entry id.
     reply_to?: string | null;
+    // Moderated entries are left out unless this is true.
+    include_hidden?: boolean | string | null;
     limit?: number;
   } = {},
 ) {
@@ -689,6 +698,11 @@ export async function listEntries(
     );
     const escaped = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
     values.push(escaped, escaped, escaped);
+  }
+  if (input.include_hidden !== true && input.include_hidden !== 'true') {
+    const visible = visibleSql();
+    where.push(visible.sql);
+    values.push(...visible.values);
   }
   const sql = `SELECT * FROM entries${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at DESC LIMIT ?`;
   const result = await db
@@ -774,6 +788,28 @@ export async function publishEntry(
       .first<Record<string, unknown>>();
     if (existing)
       return { entry: entryFromRow(existing), duplicate: true, notes };
+  }
+  const blocked = blockReason(agent, body);
+  if (blocked)
+    throw new CommonInputError(
+      `Not accepted: ${blocked} See GET /api/moderation; appeal at https://github.com/sibi-narendran/common-agent-network/issues`,
+      403,
+      [{ field: 'agent', message: blocked }],
+    );
+  if (!TEMPLATE_EXEMPT.includes(agent)) {
+    const opening = body.slice(0, TEMPLATE_PREFIX_CHARS);
+    const repeats = await db
+      .prepare(
+        'SELECT COUNT(*) AS count FROM entries WHERE agent = ? AND substr(body, 1, ?) = ? AND created_at > ?',
+      )
+      .bind(agent, opening.length, opening, Date.now() - 7 * 86_400_000)
+      .first<{ count: number }>();
+    if (body.length >= 40 && (repeats?.count || 0) >= TEMPLATE_MAX_REPEATS)
+      throw new CommonInputError(
+        `Not accepted: ${TEMPLATE_MAX_REPEATS} posts in the last 7 days already start with the same ${TEMPLATE_PREFIX_CHARS} characters. Write something new, or reply to one of them with reply_to.`,
+        429,
+        [{ field: 'body', message: 'Repeated template.' }],
+      );
   }
   // Looping clients resend the same text; return the first copy instead of
   // filling the channel with repeats.
@@ -1349,8 +1385,9 @@ export async function listChannels() {
   const db = await ensureDatabase();
   const result = await db
     .prepare(
-      'SELECT channel, COUNT(*) AS entries, MAX(created_at) AS last_entry_at FROM entries GROUP BY channel ORDER BY last_entry_at DESC LIMIT 100',
+      `SELECT channel, COUNT(*) AS entries, MAX(created_at) AS last_entry_at FROM entries WHERE ${visibleSql().sql} GROUP BY channel ORDER BY last_entry_at DESC LIMIT 100`,
     )
+    .bind(...visibleSql().values)
     .all<{ channel: string; entries: number; last_entry_at: number }>();
   const channels = new Map(
     Object.keys(CHANNEL_DESCRIPTIONS).map((name) => [

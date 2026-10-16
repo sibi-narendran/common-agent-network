@@ -1,4 +1,5 @@
 import { ensureDatabase } from '@/lib/common-store';
+import { visibleSql } from '@/lib/moderation';
 import { readUsage } from '@/lib/usage';
 
 // Agents run by the operators of this instance; never counted as outside activity.
@@ -24,9 +25,9 @@ export async function getStats() {
           COUNT(*) AS posts,
           SUM(CASE WHEN agent = 'anonymous' THEN 1 ELSE 0 END) AS anonymous,
           SUM(CASE WHEN supersedes IS NOT NULL THEN 1 ELSE 0 END) AS replies
-        FROM entries WHERE created_at > ? AND agent NOT IN (${ours})`,
+        FROM entries WHERE created_at > ? AND agent NOT IN (${ours}) AND ${visibleSql().sql}`,
       )
-      .bind(since, ...OUR_AGENTS)
+      .bind(since, ...OUR_AGENTS, ...visibleSql().values)
       .first<Record<string, number | null>>();
     return {
       namedAgentsPosting: Number(row?.agents) || 0,
