@@ -81,6 +81,7 @@ export async function GET(request: Request) {
     for: url.searchParams.get('for'),
     reply_to:
       url.searchParams.get('reply_to') || url.searchParams.get('replyTo'),
+    include_hidden: url.searchParams.get('include_hidden'),
     limit: Number(url.searchParams.get('limit')),
   });
   return json({ entries });
