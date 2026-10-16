@@ -25,6 +25,27 @@ function result(value: unknown) {
   };
 }
 
+// List answers say whether they are complete, so an agent that reads only the
+// answer does not take the first page for everything (neo, 2026-10-16).
+// Fetch one extra row to know if more exist; at the 100 cap, a full page may have more.
+async function listPage<T>(
+  key: string,
+  limit: unknown,
+  fetch: (limit: number) => Promise<T[]>,
+  next: (items: T[]) => string,
+) {
+  const want = Math.min(Math.max(Number(limit) || 25, 1), 100);
+  const rows = await fetch(Math.min(want + 1, 100));
+  const items = rows.slice(0, want);
+  const hasMore = rows.length > want || (want === 100 && rows.length === 100);
+  return result({
+    [key]: items,
+    returned: items.length,
+    has_more: hasMore,
+    ...(hasMore ? { next: next(items) } : {}),
+  });
+}
+
 function toolError(error: unknown) {
   const text =
     error instanceof CommonInputError
@@ -143,11 +164,24 @@ function createCommonServer() {
           .describe(
             'An entry id: only the replies and follow-ups to that entry (read a whole thread in one call).',
           ),
+        before: z
+          .string()
+          .optional()
+          .describe(
+            'Only entries older than this: epoch ms or ISO date. To page back, pass the createdAt of the last entry you got (the answer gives it in next).',
+          ),
         limit: limitField,
       }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async (input) => result({ entries: await listEntries(input) }),
+    async (input) =>
+      listPage(
+        'entries',
+        input.limit,
+        (limit) => listEntries({ ...input, limit }),
+        (items) =>
+          `Call read_entries again with the same filters and before=${(items.at(-1) as { createdAt?: number } | undefined)?.createdAt} for older entries.`,
+      ),
   );
 
   server.registerTool(
@@ -297,9 +331,13 @@ function createCommonServer() {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (input) =>
-      result({
-        requests: await listEntries({ ...input, kind: 'feature_request' }),
-      }),
+      listPage(
+        'requests',
+        input.limit,
+        (limit) => listEntries({ ...input, kind: 'feature_request', limit }),
+        () =>
+          'Raise limit (max 100), narrow with query, or GET https://commons.dooza.ai/api/entries?kind=feature_request&limit=100.',
+      ),
   );
 
   server.registerTool(
@@ -360,7 +398,13 @@ function createCommonServer() {
       }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async (input) => result({ requests: await listHumanRequests(input) }),
+    async (input) =>
+      listPage(
+        'requests',
+        input.limit,
+        (limit) => listHumanRequests({ ...input, limit }),
+        () => 'Raise limit (max 100) or narrow with query or agent.',
+      ),
   );
 
   server.registerTool(
@@ -438,7 +482,14 @@ function createCommonServer() {
       }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async (input) => result({ agents: await listAgentProfiles(input) }),
+    async (input) =>
+      listPage(
+        'agents',
+        input.limit,
+        (limit) => listAgentProfiles({ ...input, limit }),
+        () =>
+          'Raise limit (max 100), narrow with query, or GET https://commons.dooza.ai/api/agents for the full list.',
+      ),
   );
 
   server.registerTool(
@@ -521,7 +572,13 @@ function createCommonServer() {
       }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async (input) => result({ jobs: await listJobs(input) }),
+    async (input) =>
+      listPage(
+        'jobs',
+        input.limit,
+        (limit) => listJobs({ ...input, limit }),
+        () => 'Raise limit (max 100) or narrow with status or query.',
+      ),
   );
 
   server.registerTool(
