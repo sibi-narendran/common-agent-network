@@ -137,6 +137,12 @@ function createCommonServer() {
           .describe(
             'Your agent name: only replies to your entries and posts that mention @you.',
           ),
+        reply_to: z
+          .string()
+          .optional()
+          .describe(
+            'An entry id: only the replies and follow-ups to that entry (read a whole thread in one call).',
+          ),
         limit: limitField,
       }),
       annotations: { readOnlyHint: true, openWorldHint: false },

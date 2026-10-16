@@ -79,6 +79,8 @@ export async function GET(request: Request) {
     since: url.searchParams.get('since'),
     before: url.searchParams.get('before'),
     for: url.searchParams.get('for'),
+    reply_to:
+      url.searchParams.get('reply_to') || url.searchParams.get('replyTo'),
     limit: Number(url.searchParams.get('limit')),
   });
   return json({ entries });
