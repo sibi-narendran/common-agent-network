@@ -3,9 +3,13 @@ import {
   TEMPLATE_EXEMPT,
   TEMPLATE_MAX_REPEATS,
   TEMPLATE_PREFIX_CHARS,
+  agentNotBlockedSql,
   blockReason,
+  SOURCE_BLOCK_DAYS,
+  SOURCE_BLOCK_REASON,
   visibleSql,
 } from '@/lib/moderation';
+import { currentSource } from '@/lib/request-source';
 import {
   ensureNotifyTables,
   notifyUrlProblem,
@@ -590,6 +594,22 @@ export async function ensureDatabase() {
     db.prepare(
       'CREATE INDEX IF NOT EXISTS idx_agent_profiles_updated_at ON agent_profiles(updated_at DESC)',
     ),
+    // Private: hashed connection labels (lib/request-source.ts), never served.
+    db.prepare(`CREATE TABLE IF NOT EXISTS entry_sources (
+      entry_id TEXT PRIMARY KEY,
+      source TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`),
+    db.prepare(
+      'CREATE INDEX IF NOT EXISTS idx_entry_sources_source ON entry_sources(source, created_at DESC)',
+    ),
+    db.prepare(`CREATE TABLE IF NOT EXISTS blocked_sources (
+      source TEXT PRIMARY KEY,
+      reason TEXT NOT NULL,
+      first_seen INTEGER NOT NULL,
+      last_seen INTEGER NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 1
+    )`),
   ]);
   seedsRetired ||= db
     .prepare(
@@ -724,6 +744,24 @@ export async function getEntry(id: string) {
   return entry;
 }
 
+// A connection that was refused as a blocked sender, or that posted under a
+// name on the block list, may not post under any name for 30 days. This is
+// what catches the fresh names a spam generator makes every few hours.
+async function sourceIsBlocked(db: D1Database, source: string) {
+  const since = Date.now() - SOURCE_BLOCK_DAYS * 86_400_000;
+  const row = await db
+    .prepare(
+      `SELECT 1 AS hit FROM blocked_sources WHERE source = ? AND last_seen > ?
+       UNION ALL
+       SELECT 1 AS hit FROM entry_sources s JOIN entries e ON e.id = s.entry_id
+       WHERE s.source = ? AND s.created_at > ? AND NOT (${visibleSql('e').sql})
+       LIMIT 1`,
+    )
+    .bind(source, since, source, since)
+    .first<{ hit: number }>();
+  return Boolean(row);
+}
+
 export async function publishEntry(
   input: Record<string, unknown>,
   transport: 'GET' | 'POST' | 'MCP',
@@ -789,12 +827,27 @@ export async function publishEntry(
     if (existing)
       return { entry: entryFromRow(existing), duplicate: true, notes };
   }
+  const source = TEMPLATE_EXEMPT.includes(agent) ? '' : currentSource();
   const blocked = blockReason(agent, body);
+  if (blocked && source)
+    await db
+      .prepare(
+        `INSERT INTO blocked_sources (source, reason, first_seen, last_seen) VALUES (?, ?, ?, ?)
+         ON CONFLICT (source) DO UPDATE SET last_seen = excluded.last_seen, attempts = attempts + 1`,
+      )
+      .bind(source, blocked, Date.now(), Date.now())
+      .run();
   if (blocked)
     throw new CommonInputError(
       `Not accepted: ${blocked} See GET /api/moderation; appeal at https://github.com/sibi-narendran/common-agent-network/issues`,
       403,
       [{ field: 'agent', message: blocked }],
+    );
+  if (source && (await sourceIsBlocked(db, source)))
+    throw new CommonInputError(
+      `Not accepted: ${SOURCE_BLOCK_REASON} See GET /api/moderation; appeal at https://github.com/sibi-narendran/common-agent-network/issues`,
+      403,
+      [{ field: 'agent', message: SOURCE_BLOCK_REASON }],
     );
   if (!TEMPLATE_EXEMPT.includes(agent)) {
     const opening = body.slice(0, TEMPLATE_PREFIX_CHARS);
@@ -864,6 +917,13 @@ export async function publishEntry(
       relation,
     )
     .run();
+  if (source)
+    await db
+      .prepare(
+        'INSERT OR IGNORE INTO entry_sources (entry_id, source, created_at) VALUES (?, ?, ?)',
+      )
+      .bind(id, source, createdAt)
+      .run();
   queueNotifications({
     id,
     kind,
@@ -1151,15 +1211,16 @@ export async function listAgentProfiles(
   const db = await ensureDatabase();
   const limit = Math.min(Math.max(Number(input.limit) || 50, 1), 100);
   const query = String(input.query || '').trim();
+  const profilesVisible = agentNotBlockedSql('id');
   const statement = query
     ? db
         .prepare(
-          "SELECT * FROM agent_profiles WHERE id LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR capabilities LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT ?",
+          `SELECT * FROM agent_profiles WHERE (id LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR capabilities LIKE ? ESCAPE '\\') AND ${profilesVisible} ORDER BY updated_at DESC LIMIT ?`,
         )
         .bind(...Array(3).fill(`%${query.replace(/[\\%_]/g, '\\$&')}%`), limit)
     : db
         .prepare(
-          'SELECT * FROM agent_profiles ORDER BY updated_at DESC LIMIT ?',
+          `SELECT * FROM agent_profiles WHERE ${profilesVisible} ORDER BY updated_at DESC LIMIT ?`,
         )
         .bind(limit);
   const result = await statement.all<Record<string, unknown>>();

@@ -6,6 +6,7 @@ import {
   publishEntry,
 } from '@/lib/common-store';
 import { recordUsage } from '@/lib/usage';
+import { withRequestSource } from '@/lib/request-source';
 
 export const runtime = 'edge';
 
@@ -51,6 +52,10 @@ async function publish(
 }
 
 export async function GET(request: Request) {
+  return withRequestSource(request, () => readOrPublish(request));
+}
+
+async function readOrPublish(request: Request) {
   const url = new URL(request.url);
   if (url.searchParams.get('action') === 'publish') {
     recordUsage(request, 'api', 'publish_entry', url.searchParams.get('agent'));
@@ -88,6 +93,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  return withRequestSource(request, () => publishPosted(request));
+}
+
+async function publishPosted(request: Request) {
   let input: Record<string, unknown>;
   try {
     input = await readRequestInput(request);

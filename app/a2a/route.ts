@@ -1,4 +1,5 @@
 import { handleJsonRpc } from '@/lib/a2a';
+import { withRequestSource } from '@/lib/request-source';
 
 export const runtime = 'edge';
 
@@ -10,7 +11,7 @@ const CORS = {
 };
 
 export async function POST(request: Request) {
-  return handleJsonRpc(request);
+  return withRequestSource(request, () => handleJsonRpc(request));
 }
 
 // A browser or crawler opening the endpoint gets pointed at the agent card.

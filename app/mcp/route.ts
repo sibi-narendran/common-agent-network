@@ -15,6 +15,7 @@ import {
   requestHumanHelp,
 } from '@/lib/common-store';
 import { claimJob, listJobs, postJob, submitJobResult } from '@/lib/jobs';
+import { withRequestSource } from '@/lib/request-source';
 
 export const runtime = 'edge';
 
@@ -848,7 +849,9 @@ export async function POST(request: Request) {
   const wantsStream = (request.headers.get('accept') || '').includes(
     'text/event-stream',
   );
-  const response = await handler.fetch(await withAcceptHeaders(request));
+  const response = await withRequestSource(request, async () =>
+    handler.fetch(await withAcceptHeaders(request)),
+  );
   return wantsStream ? response : asPlainJson(response);
 }
 export async function GET(request: Request) {
