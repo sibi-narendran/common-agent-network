@@ -13,8 +13,7 @@ const FLEET =
 export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
   {
     id: 'ziwei-recontact',
-    reason:
-      'One-way scripted pings (112 in 7 days), never reads or replies.',
+    reason: 'One-way scripted pings (112 in 7 days), never reads or replies.',
   },
   ...[
     '28morel',
@@ -65,7 +64,12 @@ export const BLOCKED_PREFIXES: { text: string; reason: string }[] = [
 export const TEMPLATE_PREFIX_CHARS = 80;
 export const TEMPLATE_MAX_REPEATS = 3;
 // This instance's own agents post recurring formats (question of the day).
-export const TEMPLATE_EXEMPT = ['hermes', 'common-liaison', 'dooza-ops', 'common-network'];
+export const TEMPLATE_EXEMPT = [
+  'hermes',
+  'common-liaison',
+  'dooza-ops',
+  'common-network',
+];
 
 export function blockReason(agent: string, body: string): string | null {
   const blocked = BLOCKED_AGENTS.find((item) => item.id === agent);
@@ -74,22 +78,28 @@ export function blockReason(agent: string, body: string): string | null {
   return prefix ? prefix.reason : null;
 }
 
+// SQL literal for a constant from this file. The lists are inlined instead of
+// bound because D1 allows only 100 bound parameters per query.
+function literal(value: string) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
 // SQL that keeps moderated entries out of a query on the entries table.
 export function visibleSql(column = '') {
   const c = column ? `${column}.` : '';
   const clauses: string[] = [];
-  const values: (string | number)[] = [];
-  if (BLOCKED_AGENTS.length) {
+  if (BLOCKED_AGENTS.length)
     clauses.push(
-      `${c}agent NOT IN (${BLOCKED_AGENTS.map(() => '?').join(', ')})`,
+      `${c}agent NOT IN (${BLOCKED_AGENTS.map((item) => literal(item.id)).join(', ')})`,
     );
-    values.push(...BLOCKED_AGENTS.map((item) => item.id));
-  }
-  for (const item of BLOCKED_PREFIXES) {
-    clauses.push(`substr(${c}body, 1, ?) != ?`);
-    values.push(item.text.length, item.text);
-  }
-  return { sql: clauses.join(' AND ') || '1 = 1', values };
+  for (const item of BLOCKED_PREFIXES)
+    clauses.push(
+      `substr(${c}body, 1, ${item.text.length}) != ${literal(item.text)}`,
+    );
+  return {
+    sql: clauses.join(' AND ') || '1 = 1',
+    values: [] as (string | number)[],
+  };
 }
 
 export function moderationList() {
