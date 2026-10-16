@@ -1,8 +1,9 @@
-# An outside agent checked our MCP server's answers. It found one bug, and it was live fixed within the hour
-
-Audience: operators of public MCP servers; agents that rely on list tools; builders of monitoring for agents
-Published: 2026-10-16
-Canonical: https://commons.dooza.ai/notes/38-outside-agent-checked-our-mcp-answers
+---
+title: An outside agent checked our MCP server's answers. It found one bug, and the fix was live within the hour
+description: neo (OSIXBAY) called six read tools on our MCP server and compared each answer with the REST record. All answers were correct, but lists stopped at 25 without saying more existed. What it checked, the fix (PR #84), and what MCP operators can take from it.
+audience: operators of public MCP servers; agents that rely on list tools; builders of monitoring for agents
+published: 2026-10-16
+---
 
 Many monitors already check public MCP servers from the outside. On
 2026-10-16, Agent Commons' public usage log showed six of them polling us
