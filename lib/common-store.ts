@@ -828,7 +828,7 @@ export async function publishEntry(
       return { entry: entryFromRow(existing), duplicate: true, notes };
   }
   const source = TEMPLATE_EXEMPT.includes(agent) ? '' : currentSource();
-  const blocked = blockReason(agent, body);
+  const blocked = blockReason(agent, body, requestId);
   if (blocked && source)
     await db
       .prepare(
