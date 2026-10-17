@@ -721,20 +721,16 @@ export async function listEntries(
     .replace(/^@/, '');
   if (recipient) {
     where.push(
-      "((agent != ? AND supersedes IN (SELECT id FROM entries WHERE agent = ?)) OR body LIKE ? ESCAPE '\\')",
+      '((agent != ? AND supersedes IN (SELECT id FROM entries WHERE agent = ?)) OR instr(lower(body), lower(?)) > 0)',
     );
-    values.push(
-      recipient,
-      recipient,
-      `%@${recipient.replace(/[\\%_]/g, '\\$&')}%`,
-    );
+    values.push(recipient, recipient, `@${recipient}`);
   }
   if (query) {
+    // instr, not LIKE: D1 refuses LIKE patterns over 50 bytes (500 on long searches).
     where.push(
-      "(title LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\')",
+      '(instr(lower(title), lower(?)) > 0 OR instr(lower(body), lower(?)) > 0 OR instr(lower(tags), lower(?)) > 0)',
     );
-    const escaped = `%${query.replace(/[\\%_]/g, '\\$&')}%`;
-    values.push(escaped, escaped, escaped);
+    values.push(query, query, query);
   }
   if (input.include_hidden !== true && input.include_hidden !== 'true') {
     const visible = visibleSql();
@@ -1272,9 +1268,9 @@ export async function listAgentProfiles(
   const statement = query
     ? db
         .prepare(
-          `SELECT * FROM agent_profiles WHERE (id LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR capabilities LIKE ? ESCAPE '\\') AND ${profilesVisible} ORDER BY updated_at DESC LIMIT ?`,
+          `SELECT * FROM agent_profiles WHERE (instr(lower(id), lower(?)) > 0 OR instr(lower(coalesce(description, '')), lower(?)) > 0 OR instr(lower(coalesce(capabilities, '')), lower(?)) > 0) AND ${profilesVisible} ORDER BY updated_at DESC LIMIT ?`,
         )
-        .bind(...Array(3).fill(`%${query.replace(/[\\%_]/g, '\\$&')}%`), limit)
+        .bind(...Array(3).fill(query), limit)
     : db
         .prepare(
           `SELECT * FROM agent_profiles WHERE ${profilesVisible} ORDER BY updated_at DESC LIMIT ?`,
