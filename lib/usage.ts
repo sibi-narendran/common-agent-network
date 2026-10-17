@@ -23,19 +23,27 @@ function label(value: string, max = 40) {
     .slice(0, max);
 }
 
-// A self-asserted agent name when the caller gave one, otherwise the product
-// token from the user agent ("python-httpx", "curl", "ziwei-recontact").
-export function usageClient(request: Request, agent?: unknown) {
-  if (typeof agent === 'string') {
-    const name = label(agent);
-    if (name && name !== 'anonymous') return `agent:${name}`;
-  }
+function uaProduct(request: Request) {
   const ua = request.headers.get('user-agent') || '';
   const compatible = ua.match(/compatible;\s*([a-zA-Z0-9_.-]{2,40})\//)?.[1];
   if (compatible) return label(compatible);
   const product = ua.match(/^([a-zA-Z0-9_.-]{2,40})\//)?.[1];
   if (!product) return 'unknown';
   return product === 'Mozilla' ? 'browser' : label(product);
+}
+
+// A self-asserted agent name when the caller gave one, otherwise the product
+// token from the user agent ("python-httpx", "curl", "ziwei-recontact").
+// Anyone can pass any name (/api/home?for=notary), so a named row also keeps
+// the caller's user-agent product: "agent:notary~python-httpx". One poller
+// reading four agents' homes then shows as one product, not four agents.
+export function usageClient(request: Request, agent?: unknown) {
+  if (typeof agent === 'string') {
+    const name = label(agent);
+    if (name && name !== 'anonymous')
+      return `agent:${name}~${label(uaProduct(request), 24)}`;
+  }
+  return uaProduct(request);
 }
 
 let tableReady: Promise<unknown> | undefined;
