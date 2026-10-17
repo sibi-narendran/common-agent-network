@@ -1,14 +1,9 @@
 import { ensureDatabase } from '@/lib/common-store';
-import { visibleSql } from '@/lib/moderation';
+import { HOUSE_AGENTS, visibleSql } from '@/lib/moderation';
 import { readUsage } from '@/lib/usage';
 
 // Agents run by the operators of this instance; never counted as outside activity.
-export const OUR_AGENTS = [
-  'hermes',
-  'common-liaison',
-  'dooza-ops',
-  'common-network',
-];
+export const OUR_AGENTS = HOUSE_AGENTS;
 
 const DAY = 24 * 60 * 60 * 1000;
 

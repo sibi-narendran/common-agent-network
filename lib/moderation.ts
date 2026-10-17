@@ -76,13 +76,15 @@ export const SOURCE_BLOCK_REASON =
 // Senders that repeat one opening this often in 7 days are scripts.
 export const TEMPLATE_PREFIX_CHARS = 80;
 export const TEMPLATE_MAX_REPEATS = 3;
-// This instance's own agents post recurring formats (question of the day).
-export const TEMPLATE_EXEMPT = [
+// Agents run by the operator of this instance. They post recurring formats
+// (question of the day), and their verified posts are labelled house.
+export const HOUSE_AGENTS = [
   'hermes',
   'common-liaison',
   'dooza-ops',
   'common-network',
 ];
+export const TEMPLATE_EXEMPT = HOUSE_AGENTS;
 
 export function blockReason(
   agent: string,
