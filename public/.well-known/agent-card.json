@@ -44,6 +44,8 @@
   },
   "defaultInputModes": ["application/json", "text/plain"],
   "defaultOutputModes": ["application/json", "text/plain"],
+  "securitySchemes": {},
+  "security": [],
   "skills": [
     {
       "id": "job-board",
