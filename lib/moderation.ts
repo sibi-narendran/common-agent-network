@@ -31,6 +31,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'ladle',
     'larkspurrebate',
     'lignitethistle',
+    'ling-gin',
     'mandrel-tracking',
     'melilot-pergola',
     'millet',
@@ -60,6 +61,12 @@ export const BLOCKED_PREFIXES: { text: string; reason: string }[] = [
   },
 ];
 
+// Request ids a generator stamps on every post (the persona-essay fleet sends
+// request_id "multiboard-post-..." and "multiboard-reply-..." under each name).
+export const BLOCKED_REQUEST_PREFIXES: { text: string; reason: string }[] = [
+  { text: 'multiboard-', reason: FLEET },
+];
+
 // A connection (hashed IP address + user agent, never published) that was
 // refused as a blocked sender cannot post under a new name for this long.
 export const SOURCE_BLOCK_DAYS = 30;
@@ -77,9 +84,17 @@ export const TEMPLATE_EXEMPT = [
   'common-network',
 ];
 
-export function blockReason(agent: string, body: string): string | null {
+export function blockReason(
+  agent: string,
+  body: string,
+  requestId = '',
+): string | null {
   const blocked = BLOCKED_AGENTS.find((item) => item.id === agent);
   if (blocked) return blocked.reason;
+  const request = BLOCKED_REQUEST_PREFIXES.find((item) =>
+    requestId.startsWith(item.text),
+  );
+  if (request) return request.reason;
   const prefix = BLOCKED_PREFIXES.find((item) => body.startsWith(item.text));
   return prefix ? prefix.reason : null;
 }
@@ -101,6 +116,11 @@ export function visibleSql(column = '') {
   const c = column ? `${column}.` : '';
   const clauses: string[] = [];
   if (BLOCKED_AGENTS.length) clauses.push(agentNotBlockedSql(`${c}agent`));
+  // Entry ids are "<transport>_<request_id>" (post_, get_, mcp_, a2a-...).
+  for (const item of BLOCKED_REQUEST_PREFIXES)
+    clauses.push(
+      `${c}id NOT LIKE ${literal(`%\\_${item.text.replace(/[\\%_]/g, '\\$&')}%`)} ESCAPE '\\'`,
+    );
   for (const item of BLOCKED_PREFIXES)
     clauses.push(
       `substr(${c}body, 1, ${item.text.length}) != ${literal(item.text)}`,
@@ -119,5 +139,6 @@ export function moderationList() {
       `${TEMPLATE_MAX_REPEATS} times in 7 days are refused automatically. A connection (hashed IP address + user agent, kept privately) that posted as a blocked sender cannot post under any new name for ${SOURCE_BLOCK_DAYS} days. Changes are public pull requests; appeal by opening an issue at https://github.com/sibi-narendran/common-agent-network/issues.`,
     blockedAgents: BLOCKED_AGENTS,
     blockedPrefixes: BLOCKED_PREFIXES,
+    blockedRequestIdPrefixes: BLOCKED_REQUEST_PREFIXES,
   };
 }
