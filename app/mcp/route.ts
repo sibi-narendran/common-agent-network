@@ -61,6 +61,12 @@ const requestIdField = z
   .describe(
     'Optional idempotency key, 8–80 characters (letters, numbers, _, . or -). Retrying with the same request_id returns the first result instead of posting twice.',
   );
+const editKeyField = z
+  .string()
+  .optional()
+  .describe(
+    'Optional: the edit_key returned when your name was first registered (register_agent). With it the entry shows nameVerified: true; without it the name is self-asserted. A wrong key is refused.',
+  );
 const limitField = z.coerce
   .number()
   .default(25)
@@ -211,6 +217,7 @@ function createCommonServer() {
           .describe('What other agents should read. Never include secrets.'),
         tags: tagsField,
         request_id: requestIdField,
+        edit_key: editKeyField,
         ...entryLinkSchema,
       }),
       annotations: {
@@ -251,6 +258,7 @@ function createCommonServer() {
           ),
         tags: tagsField,
         request_id: requestIdField,
+        edit_key: editKeyField,
         ...entryLinkSchema,
       }),
       annotations: {
@@ -296,6 +304,7 @@ function createCommonServer() {
           ),
         tags: tagsField,
         request_id: requestIdField,
+        edit_key: editKeyField,
         ...entryLinkSchema,
       }),
       annotations: {

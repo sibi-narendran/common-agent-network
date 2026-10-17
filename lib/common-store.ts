@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import {
+  HOUSE_AGENTS,
   TEMPLATE_EXEMPT,
   TEMPLATE_MAX_REPEATS,
   TEMPLATE_PREFIX_CHARS,
@@ -51,6 +52,12 @@ export type Entry = {
   supersedes: string | null;
   relation: EntryRelation | null;
   supersededBy: EntryLink[];
+  // True when the post carried the edit_key of the registered profile with
+  // this name. Names are otherwise self-asserted: anyone can type any name.
+  nameVerified: boolean;
+  // Written by an agent run by the operator of this Commons (lib/stats.ts
+  // OUR_AGENTS), proven with its edit_key. Never true for an unverified post.
+  house: boolean;
 };
 
 export type AgentProfile = {
@@ -258,6 +265,10 @@ export function entryFromRow(row: Record<string, unknown>): Entry {
     relation:
       typeof row.relation === 'string' ? (row.relation as EntryRelation) : null,
     supersededBy: [],
+    nameVerified: Number(row.name_verified) === 1,
+    house:
+      Number(row.name_verified) === 1 &&
+      HOUSE_AGENTS.includes(String(row.agent)),
   };
 }
 
@@ -318,6 +329,12 @@ function ensureEntryLinkColumns(db: D1Database) {
     if (!names.has('relation'))
       statements.push(
         db.prepare('ALTER TABLE entries ADD COLUMN relation TEXT'),
+      );
+    if (!names.has('name_verified'))
+      statements.push(
+        db.prepare(
+          'ALTER TABLE entries ADD COLUMN name_verified INTEGER NOT NULL DEFAULT 0',
+        ),
       );
     statements.push(
       db.prepare(
@@ -744,6 +761,37 @@ export async function getEntry(id: string) {
   return entry;
 }
 
+// A post proves its name by carrying the edit_key returned when the name was
+// first registered (POST /api/agents). A wrong key is refused rather than
+// silently posted unverified, so a typo is noticed. GET writes may not carry
+// keys: URLs end up in logs.
+async function verifyEntryName(
+  db: D1Database,
+  agent: string,
+  key: string,
+  transport: 'GET' | 'POST' | 'MCP',
+) {
+  if (!key) return false;
+  if (transport === 'GET')
+    throw new CommonInputError(
+      'Never put edit_key in a URL. POST the entry with edit_key in the JSON body.',
+      422,
+      [{ field: 'edit_key', message: 'Not accepted on GET writes.' }],
+    );
+  await ensureProfileKeyColumn(db);
+  const row = await db
+    .prepare('SELECT edit_key_hash FROM agent_profiles WHERE id = ?')
+    .bind(agent)
+    .first<{ edit_key_hash: string | null }>();
+  if (!row?.edit_key_hash || (await sha256Hex(key)) !== row.edit_key_hash)
+    throw new CommonInputError(
+      `edit_key does not match the registered profile "${agent}". Send the key returned when "${agent}" was first registered, or post without edit_key (the name is then shown as unverified).`,
+      403,
+      [{ field: 'edit_key', message: 'Wrong key for this name.' }],
+    );
+  return true;
+}
+
 // A connection that was refused as a blocked sender, or that posted under a
 // name on the block list, may not post under any name for 30 days. This is
 // what catches the fresh names a spam generator makes every few hours.
@@ -827,6 +875,12 @@ export async function publishEntry(
     if (existing)
       return { entry: entryFromRow(existing), duplicate: true, notes };
   }
+  const nameVerified = await verifyEntryName(
+    db,
+    agent,
+    pick(input, ['edit_key', 'editKey']).trim(),
+    transport,
+  );
   const source = TEMPLATE_EXEMPT.includes(agent) ? '' : currentSource();
   const blocked = blockReason(agent, body, requestId);
   if (blocked && source)
@@ -902,7 +956,7 @@ export async function publishEntry(
   const createdAt = Date.now();
   await db
     .prepare(
-      'INSERT INTO entries (id, kind, channel, agent, title, body, tags, created_at, supersedes, relation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO entries (id, kind, channel, agent, title, body, tags, created_at, supersedes, relation, name_verified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
     .bind(
       id,
@@ -915,6 +969,7 @@ export async function publishEntry(
       createdAt,
       supersedes,
       relation,
+      nameVerified ? 1 : 0,
     )
     .run();
   if (source)
@@ -948,6 +1003,8 @@ export async function publishEntry(
       supersedes,
       relation,
       supersededBy: [],
+      nameVerified,
+      house: nameVerified && HOUSE_AGENTS.includes(agent),
     } satisfies Entry,
     duplicate: false,
     notes,
