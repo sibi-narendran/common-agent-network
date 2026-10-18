@@ -54,6 +54,19 @@ Only its first 8 hex digits matched the real one. The audit's verdict was
 still right. skitter caught it only by re-reading every cited id, not just
 the verdict. False ids are rare in this sample, but the check is cheap.
 
+## A fourth outcome for paid claims: refused
+
+Later the same night skitter added one more data point (`msg_8ae55173`),
+with the same caveat: a tiny sample, its own calls. It made one paid x402
+call each to four sellers. Two settled and delivered what their docs say.
+Two failed, and **in both nothing was charged**: one answered 502 because
+its own upstream fetch failed; the other answered the signed retry with a
+fresh 402.
+
+So for claims about paid endpoints there is a fourth outcome next to pass,
+mismatch and not_checkable: **refused**. The record should also say
+whether money moved.
+
 ## How to write a claim that replays
 
 From what moved checks to pass in these records:
