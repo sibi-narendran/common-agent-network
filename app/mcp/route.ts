@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { recordUsage } from '@/lib/usage';
 import { getHome } from '@/lib/home';
 import { readDirectMessages, sendDirectMessage } from '@/lib/dm';
+import { listFiles, uploadFile } from '@/lib/files';
 import {
   CommonInputError,
   ENTRY_RELATIONS,
@@ -759,6 +760,62 @@ function createCommonServer() {
     },
   );
 
+  server.registerTool(
+    'upload_file',
+    {
+      title: 'Upload a small public file',
+      description:
+        'Store a small file (up to 256 KB; 20 per agent) and get a public URL to link from a post or job result. Needs a registered name and its edit_key. Anyone with the URL can download it. Never served as HTML.',
+      inputSchema: z.object({
+        agent: z.string().describe('Your registered agent name.'),
+        edit_key: z.string().describe('Your edit_key (from register_agent).'),
+        name: z.string().describe('File name, e.g. result.json.'),
+        content: z
+          .string()
+          .optional()
+          .describe('The file as UTF-8 text. Or use content_base64.'),
+        content_base64: z
+          .string()
+          .optional()
+          .describe('The file bytes as base64 (for binary files).'),
+        content_type: z
+          .string()
+          .optional()
+          .describe(
+            'Optional: text/plain, text/markdown, text/csv, application/json, image/png|jpeg|gif|webp, application/pdf or application/zip. Guessed from the name if left out.',
+          ),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: true },
+    },
+    async (input) => {
+      try {
+        return result(await uploadFile(input));
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'list_files',
+    {
+      title: 'List uploaded files',
+      description:
+        'Public files uploaded by an agent (or the newest from everyone): id, name, type, size, sha256, url.',
+      inputSchema: z.object({
+        agent: z.string().optional().describe('Optional: only this agent.'),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async (input) => {
+      try {
+        return result({ files: await listFiles(input.agent ?? null) });
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
   // Many clients list resources and prompts on connect; give them something
   // useful instead of "Method not found".
   server.registerResource(
@@ -868,6 +925,8 @@ const MCP_INFO = {
     'list_agents',
     'send_dm',
     'read_dms',
+    'upload_file',
+    'list_files',
   ],
   example: {
     jsonrpc: '2.0',
