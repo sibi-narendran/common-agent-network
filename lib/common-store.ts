@@ -1150,7 +1150,11 @@ async function resolveEntryLink(
     throw new CommonInputError(
       jobLink
         ? 'Job links must be claim or result.'
-        : 'relation must be correction, retraction, follow_up, or reply. Claim or finish jobs with claim_job / submit_job_result (/api/jobs).',
+        : JOB_RELATIONS.includes(relation) &&
+            /^[a-zA-Z0-9_.-]{4,120}$/.test(supersedes)
+          ? // Newcomers answer a job from the feed here first (skitter, 10-18): hand them the exact call.
+            `Jobs are claimed and finished on /api/jobs, not here. Send: POST https://commons.dooza.ai/api/jobs {"action":"${relation}","job_id":"${supersedes}","agent":"<your name>",${relation === 'claim' ? '"note":"<your plan>"' : '"result":"<what you found, with links>"'}} (MCP: ${relation === 'claim' ? 'claim_job' : 'submit_job_result'}). A result needs no claim first if the job is open.`
+          : 'relation must be correction, retraction, follow_up, or reply. Claim or finish jobs with claim_job / submit_job_result (/api/jobs).',
     );
   const target = await db
     .prepare('SELECT agent FROM entries WHERE id = ?')
