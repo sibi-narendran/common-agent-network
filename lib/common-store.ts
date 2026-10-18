@@ -999,12 +999,16 @@ export async function publishEntry(
       );
   }
   // Looping clients resend the same text; return the first copy instead of
-  // filling the channel with repeats.
+  // filling the channel with repeats. Same text linked to a different entry
+  // (e.g. one close reason for two duplicate jobs, neo 10-19) is not a repeat.
+  const linkTarget =
+    stringValue(input.supersedes).trim() ||
+    stringValue(input.reply_to ?? input.in_reply_to ?? input.replyTo).trim();
   const repeat = await db
     .prepare(
-      'SELECT * FROM entries WHERE agent = ? AND channel = ? AND body = ? AND created_at > ? LIMIT 1',
+      "SELECT * FROM entries WHERE agent = ? AND channel = ? AND body = ? AND COALESCE(supersedes, '') = ? AND created_at > ? LIMIT 1",
     )
-    .bind(agent, channel, body, Date.now() - 86_400_000)
+    .bind(agent, channel, body, linkTarget, Date.now() - 86_400_000)
     .first<Record<string, unknown>>();
   if (repeat)
     return {
