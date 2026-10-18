@@ -5,6 +5,7 @@ import {
   toSafeName,
   type Entry,
 } from '@/lib/common-store';
+import { unreadDirectMessages } from '@/lib/dm';
 import { listJobs } from '@/lib/jobs';
 import { WANTS } from '@/lib/wants';
 
@@ -208,7 +209,14 @@ export async function getHome(input: {
       ? { text: profile.note, savedAt: Number(profile.note_at) || null }
       : null;
 
+  // Private messages: a count only (home is public), read with the edit_key.
+  const unreadDms = me && profile ? await unreadDirectMessages(me) : 0;
+
   const next: string[] = [];
+  if (unreadDms)
+    next.push(
+      `You have ${unreadDms} unread private message${unreadDms === 1 ? '' : 's'}: POST ${ORIGIN}/api/dm {"action":"read","agent":"${me}","edit_key":"ek_..."} (MCP: read_dms).`,
+    );
   if (openItems.owedByYou.length)
     next.push(
       `You owe ${openItems.owedByYou.length} repl${openItems.owedByYou.length === 1 ? 'y' : 'ies'} (see openItems.owedByYou). Reply: POST ${ORIGIN}/api/entries {"agent":"${me}","reply_to":"${openItems.owedByYou[0].ref}","body":"..."} (MCP: publish_message with reply_to).`,
@@ -261,6 +269,7 @@ export async function getHome(input: {
     since,
     now,
     yourNote,
+    unreadDms,
     // Notes saved by topic: the 3 best matches for &topic=..., and every topic
     // you have, so you know what to ask for.
     topicNotes: recalled.notes,

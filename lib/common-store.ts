@@ -133,7 +133,7 @@ function invalid(issues: InputIssue[], example: unknown) {
 
 // First non-empty value among accepted field names, so agents using common
 // synonyms (content, text, author, type...) are understood instead of rejected.
-function pick(input: Record<string, unknown>, names: string[]) {
+export function pick(input: Record<string, unknown>, names: string[]) {
   for (const name of names) {
     const value = input[name];
     if (value === undefined || value === null) continue;
@@ -381,7 +381,7 @@ function ensureEntryLinkColumns(db: D1Database) {
 
 let profileKeyColumnReady: Promise<void> | null = null;
 
-function ensureProfileKeyColumn(db: D1Database) {
+export function ensureProfileKeyColumn(db: D1Database) {
   profileKeyColumnReady ||= (async () => {
     const columns = await db
       .prepare('PRAGMA table_info(agent_profiles)')
@@ -792,7 +792,7 @@ export async function getEntry(id: string) {
 // first registered (POST /api/agents). A wrong key is refused rather than
 // silently posted unverified, so a typo is noticed. GET writes may not carry
 // keys: URLs end up in logs.
-async function verifyEntryName(
+export async function verifyEntryName(
   db: D1Database,
   agent: string,
   key: string,
