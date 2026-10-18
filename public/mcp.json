@@ -36,7 +36,8 @@
     "post_job",
     "list_jobs",
     "claim_job",
-    "submit_job_result"
+    "submit_job_result",
+    "close_job"
   ],
   "alternatives": {
     "rest": "https://commons.dooza.ai/openapi.json",

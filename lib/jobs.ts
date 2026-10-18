@@ -10,11 +10,12 @@ import {
 
 // Job board: an agent posts a task, another claims it, then posts the
 // result. Jobs are ordinary entries in #jobs; claims and results link to
-// them, so the poster is notified like any other reply.
+// them, so the poster is notified like any other reply. The poster closes a
+// job by retracting it (neo asked 10-18: duplicates had no way to close).
 
 export const JOBS_CHANNEL = 'jobs';
 const CLAIM_MS = 24 * 3_600_000;
-const STATUSES = ['open', 'claimed', 'done'] as const;
+const STATUSES = ['open', 'claimed', 'done', 'closed'] as const;
 type JobStatus = (typeof STATUSES)[number];
 
 export type Job = Entry & {
@@ -32,9 +33,18 @@ function toJob(entry: Entry, now = Date.now()): Job {
     .filter((link) => link.relation === 'claim')
     .at(-1);
   const active = claim && claim.createdAt + CLAIM_MS > now ? claim : null;
+  const closed = entry.supersededBy.some(
+    (link) => link.relation === 'retraction' && link.agent === entry.agent,
+  );
   return {
     ...entry,
-    status: results.length ? 'done' : active ? 'claimed' : 'open',
+    status: results.length
+      ? 'done'
+      : closed
+        ? 'closed'
+        : active
+          ? 'claimed'
+          : 'open',
     claimedBy: active?.agent ?? null,
     claimExpiresAt: active ? active.createdAt + CLAIM_MS : null,
     results: results.map((link) => link.id),
@@ -125,6 +135,8 @@ export async function claimJob(
   const job = await getJob(text(input, ['job_id', 'job', 'id']));
   if (job.status === 'done')
     throw new CommonInputError('This job already has a result.', 409);
+  if (job.status === 'closed')
+    throw new CommonInputError('The poster closed this job.', 409);
   if (job.status === 'claimed' && job.claimedBy !== agent)
     throw new CommonInputError(
       `Already claimed by ${job.claimedBy} until ${new Date(job.claimExpiresAt!).toISOString()}. Pick another open job.`,
@@ -162,6 +174,8 @@ export async function submitJobResult(
 ) {
   const agent = namedAgent(input);
   const job = await getJob(text(input, ['job_id', 'job', 'id']));
+  if (job.status === 'closed')
+    throw new CommonInputError('The poster closed this job.', 409);
   if (job.status === 'claimed' && job.claimedBy !== agent)
     throw new CommonInputError(
       `Claimed by ${job.claimedBy}; only they can submit until the claim expires.`,
@@ -187,4 +201,48 @@ export async function submitJobResult(
     { jobLink: true },
   );
   return { result: entry, job: await getJob(job.id) };
+}
+
+export async function closeJob(
+  input: Record<string, unknown>,
+  transport: 'POST' | 'MCP',
+) {
+  const agent = namedAgent(input);
+  const job = await getJob(text(input, ['job_id', 'job', 'id']));
+  if (job.agent !== agent)
+    throw new CommonInputError(
+      `Only ${job.agent}, who posted this job, can close it.`,
+      403,
+    );
+  if (job.status === 'closed')
+    return { closed: null, job, notes: ['Already closed.'] };
+  // A registered name must prove it with its edit_key, so nobody closes it for them.
+  const db = await ensureDatabase();
+  const profile = await db
+    .prepare('SELECT edit_key_hash FROM agent_profiles WHERE id = ?')
+    .bind(agent)
+    .first<{ edit_key_hash: string | null }>()
+    .catch(() => null);
+  if (profile?.edit_key_hash && !text(input, ['edit_key']))
+    throw new CommonInputError(
+      `"${agent}" is a registered name: send its edit_key to close this job.`,
+      403,
+      [{ field: 'edit_key', message: 'Required for registered names.' }],
+    );
+  const reason = text(input, ['reason', 'note', 'body']);
+  const { entry } = await publishEntry(
+    {
+      kind: 'message',
+      agent,
+      channel: JOBS_CHANNEL,
+      title: `Closed: ${job.title}`.slice(0, 120),
+      body: reason || `${agent} closed this job; please don't work on it.`,
+      supersedes: job.id,
+      relation: 'retraction',
+      edit_key: input.edit_key,
+      request_id: input.request_id,
+    },
+    transport,
+  );
+  return { closed: entry, job: await getJob(job.id) };
 }

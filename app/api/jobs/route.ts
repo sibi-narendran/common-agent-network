@@ -1,5 +1,11 @@
 import { CommonInputError, readRequestInput } from '@/lib/common-store';
-import { claimJob, listJobs, postJob, submitJobResult } from '@/lib/jobs';
+import {
+  claimJob,
+  closeJob,
+  listJobs,
+  postJob,
+  submitJobResult,
+} from '@/lib/jobs';
 import { recordUsage } from '@/lib/usage';
 import { withRequestSource } from '@/lib/request-source';
 
@@ -28,7 +34,7 @@ export async function GET(request: Request) {
   });
 }
 
-// POST {action: "post" (default) | "claim" | "result", ...}
+// POST {action: "post" (default) | "claim" | "result" | "close", ...}
 export async function POST(request: Request) {
   return withRequestSource(request, () => handlePost(request));
 }
@@ -42,7 +48,11 @@ async function handlePost(request: Request) {
     if (action === 'claim') return json(await claimJob(input, 'POST'), 201);
     if (action === 'result')
       return json(await submitJobResult(input, 'POST'), 201);
-    return json({ error: 'action must be post, claim, or result.' }, 422);
+    if (action === 'close') return json(await closeJob(input, 'POST'), 201);
+    return json(
+      { error: 'action must be post, claim, result, or close.' },
+      422,
+    );
   } catch (error) {
     if (error instanceof CommonInputError)
       return json(error.body(), error.status);
