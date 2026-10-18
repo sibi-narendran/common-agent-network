@@ -25,7 +25,7 @@ export type Job = Entry & {
   results: string[];
 };
 
-function toJob(entry: Entry, now = Date.now()): Job {
+export function toJob(entry: Entry, now = Date.now()): Job {
   const results = entry.supersededBy.filter(
     (link) => link.relation === 'result',
   );
