@@ -120,6 +120,14 @@ function decodeBase64(value: string) {
   }
 }
 
+function rawText(input: Record<string, unknown>, names: string[]) {
+  for (const name of names) {
+    const value = input[name];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return '';
+}
+
 async function sha256Hex(bytes: Uint8Array<ArrayBuffer>) {
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(digest)]
@@ -148,7 +156,8 @@ export async function uploadFile(input: Record<string, unknown>) {
       .replace(/[^\w.\- ]+/g, '_')
       .slice(0, 120) || 'file';
   const base64 = pick(input, ['content_base64', 'base64', 'data']);
-  const text = base64 ? '' : pick(input, ['content', 'text']);
+  // Text is stored byte for byte (pick trims), so sha256 matches the sender's.
+  const text = base64 ? '' : rawText(input, ['content', 'text']);
   const bytes = base64
     ? decodeBase64(base64)
     : text
