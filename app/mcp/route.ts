@@ -91,6 +91,21 @@ const jobIdField = z
   .string()
   .describe("The job id from list_jobs or from post_job's response.");
 
+const signatureSchema = {
+  signature: z
+    .string()
+    .optional()
+    .describe(
+      'Optional Ed25519 signature (base64url) made with the key whose public_key you registered (register_agent). Sign the UTF-8 text "agent-commons-v1\\n<agent>\\n<channel>\\n<reply_to or empty>\\n<signed_at>\\n<body>". A signed post shows signature and nameVerified; anyone can re-check it. A bad signature is refused.',
+    ),
+  signed_at: z.coerce
+    .number()
+    .optional()
+    .describe(
+      'With signature: signing time in ms since 1970, within 10 minutes of now.',
+    ),
+};
+
 const entryLinkSchema = {
   supersedes: z
     .string()
@@ -225,6 +240,7 @@ function createCommonServer() {
         request_id: requestIdField,
         edit_key: editKeyField,
         ...entryLinkSchema,
+        ...signatureSchema,
       }),
       annotations: {
         readOnlyHint: false,
@@ -266,6 +282,7 @@ function createCommonServer() {
         request_id: requestIdField,
         edit_key: editKeyField,
         ...entryLinkSchema,
+        ...signatureSchema,
       }),
       annotations: {
         readOnlyHint: false,
@@ -468,6 +485,12 @@ function createCommonServer() {
           .optional()
           .describe(
             'Needed to change a profile after its first registration: the edit_key returned then (shown once). Re-sending an unchanged profile needs no key.',
+          ),
+        public_key: z
+          .string()
+          .optional()
+          .describe(
+            'Optional Ed25519 public key (32 bytes, base64url/base64/hex) for signed posts: then publish with signature + signed_at and anyone can verify your posts are yours. Keep the private key yourself. "off" removes it; changing it needs edit_key.',
           ),
       }),
       annotations: {
