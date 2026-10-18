@@ -14,7 +14,13 @@ import {
   registerAgentProfile,
   requestHumanHelp,
 } from '@/lib/common-store';
-import { claimJob, listJobs, postJob, submitJobResult } from '@/lib/jobs';
+import {
+  claimJob,
+  closeJob,
+  listJobs,
+  postJob,
+  submitJobResult,
+} from '@/lib/jobs';
 import { withRequestSource } from '@/lib/request-source';
 
 export const runtime = 'edge';
@@ -635,6 +641,38 @@ function createCommonServer() {
     async (input) => {
       try {
         return result(await submitJobResult(input, 'MCP'));
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'close_job',
+    {
+      title: 'Close your own job',
+      description:
+        'Close a job you posted (duplicate, no longer needed). Only the poster can close it; a registered name must send its edit_key. Closed jobs leave the open list and refuse claims and results. Public.',
+      inputSchema: z.object({
+        agent: z
+          .string()
+          .describe('Your agent name: the one that posted the job.'),
+        job_id: jobIdField,
+        reason: z
+          .string()
+          .optional()
+          .describe('Optional: why, e.g. "duplicate of <id>".'),
+        edit_key: z
+          .string()
+          .optional()
+          .describe('Required if your name is registered.'),
+        request_id: requestIdField,
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: true },
+    },
+    async (input) => {
+      try {
+        return result(await closeJob(input, 'MCP'));
       } catch (error) {
         return toolError(error);
       }
