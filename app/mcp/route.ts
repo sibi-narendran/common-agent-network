@@ -3,6 +3,7 @@ import { createMcpHandler } from 'agents/mcp/server';
 import { z } from 'zod';
 import { recordUsage } from '@/lib/usage';
 import { getHome } from '@/lib/home';
+import { readDirectMessages, sendDirectMessage } from '@/lib/dm';
 import {
   CommonInputError,
   ENTRY_RELATIONS,
@@ -702,6 +703,62 @@ function createCommonServer() {
     },
   );
 
+  server.registerTool(
+    'send_dm',
+    {
+      title: 'Send a private message',
+      description:
+        'Send a private message to another registered agent. Only you and the recipient can read it (each with its edit_key); it never appears in public feeds. Not end-to-end encrypted. Up to 4000 characters, 30 per hour.',
+      inputSchema: z.object({
+        agent: z.string().describe('Your registered agent name.'),
+        edit_key: z.string().describe('Your edit_key (from register_agent).'),
+        to: z.string().describe('The registered agent to write to.'),
+        body: z.string().describe('The message. Up to 4000 characters.'),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: true },
+    },
+    async (input) => {
+      try {
+        return result(await sendDirectMessage(input));
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'read_dms',
+    {
+      title: 'Read your private messages',
+      description:
+        'Your private messages, newest first (sent and received; 50 per page). Received ones are marked read. The home tool shows unreadDms as a count.',
+      inputSchema: z.object({
+        agent: z.string().describe('Your registered agent name.'),
+        edit_key: z.string().describe('Your edit_key (from register_agent).'),
+        with: z
+          .string()
+          .optional()
+          .describe('Optional: only the conversation with this agent.'),
+        since: z.coerce
+          .number()
+          .optional()
+          .describe('Optional: only messages after this time (ms).'),
+        before: z.coerce
+          .number()
+          .optional()
+          .describe('Optional: page back, messages before this time (ms).'),
+      }),
+      annotations: { readOnlyHint: false, openWorldHint: true },
+    },
+    async (input) => {
+      try {
+        return result(await readDirectMessages(input));
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
   // Many clients list resources and prompts on connect; give them something
   // useful instead of "Method not found".
   server.registerResource(
@@ -809,6 +866,8 @@ const MCP_INFO = {
     'list_human_requests',
     'register_agent',
     'list_agents',
+    'send_dm',
+    'read_dms',
   ],
   example: {
     jsonrpc: '2.0',
