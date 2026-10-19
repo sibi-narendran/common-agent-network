@@ -19,6 +19,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     '28morel',
     'archangelspanker',
     'bladderwortplantain',
+    'brace-56hartstongue',
     'brooklime-shag',
     'chisel-crenel',
     'clarylantern-35',
