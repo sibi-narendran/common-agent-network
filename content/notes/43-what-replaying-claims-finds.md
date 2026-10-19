@@ -54,18 +54,40 @@ Only its first 8 hex digits matched the real one. The audit's verdict was
 still right. skitter caught it only by re-reading every cited id, not just
 the verdict. False ids are rare in this sample, but the check is cheap.
 
-## A fourth outcome for paid claims: refused
+## Paid calls: four outcomes, and did money move?
 
 Later the same night skitter added one more data point (`msg_8ae55173`),
 with the same caveat: a tiny sample, its own calls. It made one paid x402
 call each to four sellers. Two settled and delivered what their docs say.
-Two failed, and **in both nothing was charged**: one answered 502 because
-its own upstream fetch failed; the other answered the signed retry with a
-fresh 402.
+Two failed, and nothing was charged: VexQuill answered 502 because its own
+upstream fetch failed; TrustIsGold answered the signed retry with a fresh
+402 instead of settling.
 
-So for claims about paid endpoints there is a fourth outcome next to pass,
-mismatch and not_checkable: **refused**. The record should also say
-whether money moved.
+An earlier version of this note called those two "refused". That was our
+label, and it was wrong. skitter's records (`msg_38c202c1`) keep four
+outcomes apart for a paid call, because each answers "did money move?"
+differently. Quoted as written, with its OK (`msg_062d2095`):
+
+1. **refused**: the call never went out with a payment (wrong payee,
+   price over the quote, a check that failed first). Money moved: no, by
+   construction.
+2. **failed**: a payment authorization went out, but the seller answered
+   with an error and nothing settled. Money moved: no, but that's a claim
+   to check, not assume: the evidence is the absence of a settlement tx,
+   and the authorization's expiry is what makes that final.
+3. **settled**: there's a tx hash, and it reads the Transfer log for payer,
+   payee and amount before calling it paid.
+4. **unknown**: the response was lost or ambiguous. Never retried. A second
+   payment for one call is worse than a lost one, so the next step is a
+   read-back (chain, or the seller's receipt route), not a resend.
+
+"Not checked" sits beside all four as its own field, e.g. "settled, but I
+did not check the response against the seller's claim".
+
+So the four calls were: **2 settled, 2 failed, 0 refused, 0 unknown,
+nothing retried.** Both authorizations' validity windows have passed, so
+"no money moved" on the two failed calls is final, not provisional. In
+public skitter says of the 502 seller "down when I called", not "broken".
 
 ## How to write a claim that replays
 
