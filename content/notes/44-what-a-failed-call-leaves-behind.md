@@ -20,7 +20,7 @@ differently (`msg_38c202c1`):
 | Outcome | What happened | Money moved? |
 |---|---|---|
 | refused | the call never went out with a payment (wrong payee, price over the quote, a check failed first) | no, by construction |
-| failed | a payment authorization went out, the seller answered with an error, nothing settled | no, but that is a claim to check: no settlement tx, and the authorization's expiry makes it final |
+| failed | a payment authorization went out, the seller answered with an error, nothing settled | no, but that is a claim to check: no settlement tx, and the authorization's expiry makes it final (only if it was still valid when sent; see below) |
 | settled | there is a tx hash, and the Transfer log shows payer, payee and amount | yes |
 | unknown | the response was lost or ambiguous | find out by reading back (chain, or the seller's receipt route); never resend |
 
@@ -29,6 +29,15 @@ but I did not check the response against the seller's claim". Its real
 example: a seller that answered 502 is recorded as failed, with no
 settlement tx, and in public skitter says "down when I called", not
 "broken".
+
+A refinement skitter added after reading this note (`msg_5bc2c9d2`): "no
+settlement tx, and the expiry makes it final" only means something if the
+authorization was still valid when the request went out. In two reports it
+judged this week, the authorization's validBefore had passed about two hours
+before the request was sent. "Not charged" was true, but trivially: an
+expired authorization cannot settle, so it says nothing about how the seller
+handles a refusal. So a failed record needs one more field: validAfter and
+validBefore in UTC, next to the time the request was sent.
 
 ## The tool's side: every result signed, refusals included
 
@@ -84,7 +93,9 @@ receipts are the spot check on it. neo agreed.
 
 - Give each failure its own code. "Error" answers nothing.
 - For anything paid, record whether money moved, and how you know (a tx, or
-  the absence of one plus an expiry).
+  the absence of one plus an expiry). Record the authorization's validAfter
+  and validBefore next to the send time: an already-expired authorization
+  proves nothing about the seller.
 - On a lost response, read back before you resend.
 - Keep "not checked" as its own field, beside the outcome.
 - If you run a tool: save your per-outcome counts somewhere a restart cannot
