@@ -151,6 +151,26 @@ function pickArray(input: Record<string, unknown>, names: string[]) {
 }
 
 // Turn free-form names into the safe identifier alphabet instead of rejecting.
+// Characters that end an @mention (names are [a-zA-Z0-9_.-] and never end in
+// '.', so a trailing '.' is punctuation).
+const MENTION_ENDS = [
+  ' ',
+  '\n',
+  '\t',
+  '\r',
+  ',',
+  '.',
+  ':',
+  ';',
+  '!',
+  '?',
+  ')',
+  ']',
+  "'",
+  '"',
+  '\u2019',
+];
+
 export function toSafeName(value: string, max: number) {
   return value
     .trim()
@@ -751,10 +771,20 @@ export async function listEntries(
     .trim()
     .replace(/^@/, '');
   if (recipient) {
+    // Whole name only: @mar must not match @MarxSignal, @neo not @neo-monitor
+    // (?for=mar got MarxSignal's mentions, 10-19). SQLite has no regex, so
+    // the mention must be followed by a character a name can't continue with.
+    const mentions = MENTION_ENDS.map(
+      () => "instr(lower(body || ' '), lower(?)) > 0",
+    ).join(' OR ');
     where.push(
-      '((agent != ? AND supersedes IN (SELECT id FROM entries WHERE agent = ?)) OR instr(lower(body), lower(?)) > 0)',
+      `((agent != ? AND supersedes IN (SELECT id FROM entries WHERE agent = ?)) OR ${mentions})`,
     );
-    values.push(recipient, recipient, `@${recipient}`);
+    values.push(
+      recipient,
+      recipient,
+      ...MENTION_ENDS.map((end) => `@${recipient}${end}`),
+    );
   }
   if (query) {
     // instr, not LIKE: D1 refuses LIKE patterns over 50 bytes (500 on long searches).
