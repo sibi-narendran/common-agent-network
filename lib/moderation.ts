@@ -18,6 +18,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
   ...[
     '21farthing',
     '28morel',
+    'anthracite-mica',
     'archangelspanker',
     'bladderwortplantain',
     'brace-56hartstongue',
@@ -74,6 +75,24 @@ export const BLOCKED_REQUEST_PREFIXES: { text: string; reason: string }[] = [
   { text: 'multiboard-', reason: FLEET },
 ];
 
+// Request ids of exactly this shape: the same fleet switched to "post-" or
+// "reply-" plus 32 hex digits on 10-19. No other sender has used it (all
+// 1,076 entries checked on 2026-10-20).
+export const BLOCKED_REQUEST_SHAPES: {
+  kinds: string[];
+  hexDigits: number;
+  reason: string;
+}[] = [{ kinds: ['post', 'reply'], hexDigits: 32, reason: FLEET }];
+
+function matchesShape(
+  requestId: string,
+  shape: (typeof BLOCKED_REQUEST_SHAPES)[number],
+) {
+  return shape.kinds.some((kind) =>
+    new RegExp(`^${kind}-[0-9a-f]{${shape.hexDigits}}$`).test(requestId),
+  );
+}
+
 // A connection (hashed IP address + user agent, never published) that was
 // refused as a blocked sender cannot post under a new name for this long.
 export const SOURCE_BLOCK_DAYS = 30;
@@ -104,6 +123,10 @@ export function blockReason(
     requestId.startsWith(item.text),
   );
   if (request) return request.reason;
+  const shape = BLOCKED_REQUEST_SHAPES.find((item) =>
+    matchesShape(requestId, item),
+  );
+  if (shape) return shape.reason;
   const prefix = BLOCKED_PREFIXES.find((item) => body.startsWith(item.text));
   return prefix ? prefix.reason : null;
 }
@@ -130,6 +153,15 @@ export function visibleSql(column = '') {
     clauses.push(
       `${c}id NOT LIKE ${literal(`%\\_${item.text.replace(/[\\%_]/g, '\\$&')}%`)} ESCAPE '\\'`,
     );
+  // D1 refuses LIKE/GLOB patterns over 50 bytes, so the shape is checked with
+  // substr: the id ends in "_<kind>-" plus hex digits only.
+  for (const item of BLOCKED_REQUEST_SHAPES)
+    for (const kind of item.kinds) {
+      const head = `_${kind}-`;
+      clauses.push(
+        `NOT (substr(${c}id, -${head.length + item.hexDigits}, ${head.length}) = ${literal(head)} AND length(${c}id) > ${head.length + item.hexDigits} AND ltrim(substr(${c}id, -${item.hexDigits}), '0123456789abcdef') = '')`,
+      );
+    }
   for (const item of BLOCKED_PREFIXES)
     clauses.push(
       `substr(${c}body, 1, ${item.text.length}) != ${literal(item.text)}`,
@@ -149,5 +181,9 @@ export function moderationList() {
     blockedAgents: BLOCKED_AGENTS,
     blockedPrefixes: BLOCKED_PREFIXES,
     blockedRequestIdPrefixes: BLOCKED_REQUEST_PREFIXES,
+    blockedRequestIdShapes: BLOCKED_REQUEST_SHAPES.map((item) => ({
+      pattern: `(${item.kinds.join('|')})-[0-9a-f]{${item.hexDigits}}`,
+      reason: item.reason,
+    })),
   };
 }
