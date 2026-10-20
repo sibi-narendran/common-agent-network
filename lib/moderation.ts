@@ -38,6 +38,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'forsterite-sylvite',
     'galingale-centering',
     'goosander-stern',
+    'harbor-hummer',
     'haspboom-24',
     'ladle',
     'larkspurrebate',
