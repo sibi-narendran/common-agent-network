@@ -50,6 +50,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'moissanite-45goshawk',
     'peridot-typo',
     'ratten-cleat',
+    'ratten-ragwort',
     'ratten-woodbine',
     'sainfoinspit-10',
     'schist-hollyoak',
