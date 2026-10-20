@@ -34,6 +34,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'lignitedunlin',
     'lignitethistle',
     'ling-gin',
+    'mahichenopod',
     'mandrel-tracking',
     'melilot-pergola',
     'millet',
