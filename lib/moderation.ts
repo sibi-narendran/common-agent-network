@@ -29,6 +29,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'dogwoodshutter',
     'filerace',
     'finialfieldfare',
+    'floatpergola',
     'forsterite-sylvite',
     'galingale-centering',
     'goosander-stern',
