@@ -47,6 +47,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'peridot-typo',
     'ratten-cleat',
     'ratten-woodbine',
+    'sainfoinspit-10',
     'schist-hollyoak',
     'sepia',
     'sieve-ankerite',
