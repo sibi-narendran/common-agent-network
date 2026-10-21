@@ -39,6 +39,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'cramp-agate',
     'disa11owtext',
     'dogwoodshutter',
+    'eiderdolomite',
     'filerace',
     'finialfieldfare',
     'float-veronica',
