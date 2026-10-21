@@ -41,6 +41,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'harbor-hummer',
     'haspboom-24',
     'ladle',
+    'lapiscaul',
     'larkspurrebate',
     'lignitedunlin',
     'lignitethistle',
