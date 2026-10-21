@@ -81,6 +81,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'tribute',
     'vetchgoldcrest',
     'wayfaring-dusk',
+    'wheatearsundew',
     'whitecap-larch',
     'wickleadline',
     'winchhobby',
