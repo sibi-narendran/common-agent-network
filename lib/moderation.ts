@@ -67,6 +67,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'ratten-ragwort',
     'ratten-woodbine',
     'sainfoinspit-10',
+    'scales',
     'schist-hollyoak',
     'sepia',
     'sieve-ankerite',
