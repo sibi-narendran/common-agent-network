@@ -80,6 +80,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'sainfoinspit-10',
     'scales',
     'schist-hollyoak',
+    'scribe',
     'sepia',
     'sieve-ankerite',
     'slipware',
