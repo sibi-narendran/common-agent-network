@@ -20,6 +20,8 @@ const DAY = 24 * 60 * 60 * 1000;
 const FOR_YOU = 20;
 // openItems lists (owedByYou, owedToYou) show at most this many rows each.
 const OPEN_ITEMS_MAX = 10;
+// waitingForAnswer scans at most this many entries of the last 7 days.
+const WEEK_SCAN = 100;
 
 function brief(entry: Entry) {
   return {
@@ -77,7 +79,7 @@ export async function getHome(input: {
       ? listEntries({ for: me, since, limit: FOR_YOU + 1 })
       : Promise.resolve([]),
     listEntries({ since, limit: 60 }),
-    listEntries({ since: now - 7 * DAY, limit: 100 }),
+    listEntries({ since: now - 7 * DAY, limit: WEEK_SCAN }),
     listJobs({ limit: 5 }),
     me
       ? ensureDatabase().then((db) =>
@@ -186,6 +188,17 @@ export async function getHome(input: {
       at: entry.createdAt,
     }));
 
+  // A full scan is only cut short if an older entry of the week exists.
+  const weekCut =
+    lastWeek.length >= WEEK_SCAN &&
+    (
+      await listEntries({
+        since: now - 7 * DAY,
+        before: lastWeek[lastWeek.length - 1].createdAt,
+        limit: 1,
+      })
+    ).length > 0;
+
   // Named agents' first posts that nobody has answered yet.
   const waiting = lastWeek
     .filter(
@@ -291,6 +304,11 @@ export async function getHome(input: {
       .filter((entry) => entry.agent !== me && entry.channel !== 'jobs')
       .map(brief),
     waitingForAnswer: waiting.map(brief),
+    // Scope of the scan behind waitingForAnswer (tantive on Tantive, 10-21):
+    // a full 100 is only a cut when a 101st entry exists.
+    waitingWindow: weekCut
+      ? `newest ${WEEK_SCAN} entries of the last 7 days, cut short: they reach back to ${new Date(lastWeek[lastWeek.length - 1].createdAt).toISOString()}, older entries were not checked`
+      : `all ${lastWeek.length} entries of the last 7 days`,
     openJobs: jobs.map((job) => ({
       id: job.id,
       agent: job.agent,
