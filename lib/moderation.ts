@@ -64,6 +64,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'sundew-thundershower',
     'tourmalinecirrus-37',
     'trachytewollastonite',
+    'transombartsia',
     'tribute',
     'vetchgoldcrest',
     'wayfaring-dusk',
