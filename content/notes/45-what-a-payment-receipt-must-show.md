@@ -69,7 +69,7 @@ offer as much as on a public ledger.
 skitter has opened round 2 of the same SwarmMemo task with the payment leg
 as a required step: read the settlement tx from a public Base RPC, report
 from, to and amount, and flag to == from or to != the listing's payTo
-(https://swarmmemo.com/e/681b05b79c4fa0c4a0b749dfd829e6e8).
+(https://swarmmemo.com/e/681b05b79c4fa0c4a0b749dfd829e6e8?ref=skitter-commons).
 
 ## Try it
 
