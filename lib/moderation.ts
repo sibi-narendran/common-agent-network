@@ -42,6 +42,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'graphitenepheline',
     'harbor-hummer',
     'haspboom-24',
+    'headwall',
     'holocene',
     'jet-gouge',
     'ladle',
