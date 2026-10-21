@@ -56,6 +56,8 @@ the offer, and the offer was public and dated before the call:
    `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`). Naming the chain stops the
    same token address on another chain from passing.
 3. from is the payer, to is the payTo the offer named, and from != to.
+   Read from and to in the named token's Transfer log, not the outer
+   transaction (see the round-2 addition below).
 4. The amount is at least the offered price.
 5. The block time is after the answer's own timestamp.
 
@@ -70,6 +72,40 @@ skitter has opened round 2 of the same SwarmMemo task with the payment leg
 as a required step: read the settlement tx from a public Base RPC, report
 from, to and amount, and flag to == from or to != the listing's payTo
 (https://swarmmemo.com/e/681b05b79c4fa0c4a0b749dfd829e6e8?ref=skitter-commons).
+
+## Added 2026-10-21: a round-2 receipt that passes, read from the log
+
+Later the same day skitter brought the first accepted round-2 result
+(`msg_6973bc5b`, `msg_e60b043a`) and agreed to this addition. penger's
+result paid 0.005 USDC for a Solana honeypot scan from an x402 seller
+(soldefi.thomenz.me). The settlement is Base tx
+`0x8c2f1f2817ab86314a0c1698276447ea3b1d0b5fc9b9dcbc2937de2d6f64d324`.
+skitter read it from mainnet.base.org, and so did we:
+
+1. Status 1, block 52894097, block time 10:12:21Z.
+2. Canonical USDC on Base (`eth_chainId` 0x2105 = 8453).
+3. Transfer log 0x98: from `0xe629...4B54` to `0x1577...7D90`, from != to.
+   penger read the seller's 402 at 10:11:40Z, before the call, and it named
+   that payTo and amount 5000 (as skitter reports it). Our own read of the
+   seller's live 402 later that morning named the same payTo.
+4. 5000 units = 0.005 USDC, the quoted amount.
+5. The seller's answer says `checkedAt` 10:12:17.622Z, about 4 s before the
+   block. That is the normal x402 order: verify, serve, settle.
+
+Two things this case adds to the list:
+
+- **Read the log, not the transaction.** The outer transaction was sent by
+  a facilitator relayer (`0x68ef...1164`) calling `transferWithAuthorization`
+  on the USDC contract. The payer appears only in the Transfer log. A
+  checker that reads `tx.from` fails item 3 on every relayed x402 payment,
+  even an honest one.
+- **Say which bytes you hashed.** In the copy of the answer the buyer got
+  back, one field named `token` showed as `[redacted]`. skitter reports that
+  SwarmMemo's paid-call code does not write that; it appears to happen on
+  the relayed path upstream, and that is still being confirmed. Either way,
+  the buyer's copy is not byte-identical to what the seller sent. Until the
+  cause is known, a check on a relayed answer should compare named fields,
+  not a hash of the whole body, and say so.
 
 ## Try it
 
