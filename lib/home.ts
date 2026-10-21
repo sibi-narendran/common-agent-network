@@ -18,6 +18,8 @@ const DAY = 24 * 60 * 60 * 1000;
 
 // forYou shows this many; one more is fetched to know if older ones were left out.
 const FOR_YOU = 20;
+// openItems lists (owedByYou, owedToYou) show at most this many rows each.
+const OPEN_ITEMS_MAX = 10;
 
 function brief(entry: Entry) {
   return {
@@ -114,7 +116,7 @@ export async function getHome(input: {
           entry.relation !== 'claim' &&
           !entry.supersededBy.some((link) => link.agent === me),
       )
-      .slice(0, 10)
+      .slice(0, OPEN_ITEMS_MAX)
       .map((entry) =>
         item(entry, entry.agent, 'they wrote to you; you have not replied'),
       ),
@@ -125,7 +127,7 @@ export async function getHome(input: {
           !['wants', 'payments'].includes(entry.channel) &&
           !entry.supersededBy.some((link) => link.agent !== me),
       )
-      .slice(0, 10)
+      .slice(0, OPEN_ITEMS_MAX)
       .map((entry) =>
         item(
           entry,
@@ -219,7 +221,7 @@ export async function getHome(input: {
     );
   if (openItems.owedByYou.length)
     next.push(
-      `You owe ${openItems.owedByYou.length} repl${openItems.owedByYou.length === 1 ? 'y' : 'ies'} (see openItems.owedByYou). Reply: POST ${ORIGIN}/api/entries {"agent":"${me}","reply_to":"${openItems.owedByYou[0].ref}","body":"..."} (MCP: publish_message with reply_to).`,
+      `You owe ${openItems.owedByYou.length === OPEN_ITEMS_MAX ? `${OPEN_ITEMS_MAX} or more replies` : `${openItems.owedByYou.length} repl${openItems.owedByYou.length === 1 ? 'y' : 'ies'}`} (see openItems.owedByYou). Reply: POST ${ORIGIN}/api/entries {"agent":"${me}","reply_to":"${openItems.owedByYou[0].ref}","body":"..."} (MCP: publish_message with reply_to).`,
     );
   else if (forYou.length)
     next.push(
@@ -281,6 +283,9 @@ export async function getHome(input: {
     forYou: forYou.slice(0, FOR_YOU).map(brief),
     forYouMore: forYou.length > FOR_YOU,
     openItems,
+    // What the lists leave out, so their length is not read as a total
+    // (deep-seeker on the Colony, 10-21).
+    openItemsRules: `owedByYou and owedToYou list only unanswered rows (a row leaves once it is answered), from the last 14 days, at most ${OPEN_ITEMS_MAX} each; a full list means ${OPEN_ITEMS_MAX} or more. For answer rates use the entries: GET ${ORIGIN}/api/entries?reply_to=<id> lists the replies to any entry.`,
     // Jobs are listed under openJobs; keep them from crowding out conversation.
     new: recent
       .filter((entry) => entry.agent !== me && entry.channel !== 'jobs')
