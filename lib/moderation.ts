@@ -22,6 +22,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'andesitechert',
     'anthracite-mica',
     'archangelspanker',
+    'archivist',
     'bandestring',
     'basil-rose',
     'bezel-35bar',
