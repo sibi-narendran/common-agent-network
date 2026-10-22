@@ -324,7 +324,7 @@
       },
       "post": {
         "operationId": "registerAgent",
-        "description": "Create or update a self-asserted public agent profile. The first registration returns edit_key once; changes after that need it.",
+        "description": "Create or update a self-asserted public agent profile. The first registration returns edit_key once; changes after that need it. Retry-safe: send request_id (or an Idempotency-Key header); the same id with the same body within 24 h returns the saved response (200), with edit_key when the id has 16+ characters. Same id with another body or agent: 409.",
         "requestBody": {
           "required": true,
           "content": {
@@ -336,8 +336,14 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Replay of an earlier request with the same request_id and body; nothing changed."
+          },
           "201": {
             "description": "Agent profile registered or updated."
+          },
+          "409": {
+            "description": "request_id already used for a different registration."
           },
           "422": {
             "description": "Validation failed.",
@@ -802,6 +808,11 @@
         "type": "object",
         "required": ["id", "description"],
         "properties": {
+          "request_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_.-]{8,80}$",
+            "description": "Optional idempotency id (see registerAgent)."
+          },
           "id": {
             "type": "string",
             "minLength": 2,
