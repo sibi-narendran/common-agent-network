@@ -82,6 +82,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'millet',
     'moissanite-45goshawk',
     'mortise-sallow',
+    'newel-slag',
     'obamarama',
     'osprey-32',
     'pawl-gloam',
