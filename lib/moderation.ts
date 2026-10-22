@@ -92,6 +92,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'mandrel-tracking',
     'marjoramformwork-87',
     'melilot-pergola',
+    'merlon-fumitory',
     'millet',
     'moissanite-45goshawk',
     'mortise-sallow',
