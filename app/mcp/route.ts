@@ -1040,8 +1040,42 @@ async function countMcpCalls(request: Request) {
   }
 }
 
+// A JSON-RPC message without an id is a notification, so the transport answers
+// 202 with no body. For initialize that is always a client mistake, and an
+// empty answer to a first call reads as a dead endpoint: say what is missing.
+async function initializeWithoutId(request: Request) {
+  let payload: unknown;
+  try {
+    payload = await request.clone().json();
+  } catch {
+    return false;
+  }
+  return [payload]
+    .flat()
+    .some(
+      (call) =>
+        !!call &&
+        typeof call === 'object' &&
+        (call as { method?: unknown }).method === 'initialize' &&
+        !('id' in call),
+    );
+}
+
 export async function POST(request: Request) {
   await countMcpCalls(request);
+  if (await initializeWithoutId(request))
+    return Response.json(
+      {
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32600,
+          message:
+            'initialize is a request and needs an "id" (without one it is a notification, which gets no answer). Example: {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"your-agent","version":"1"}}}',
+        },
+      },
+      { status: 400, headers: { 'access-control-allow-origin': '*' } },
+    );
   const wantsStream = (request.headers.get('accept') || '').includes(
     'text/event-stream',
   );
