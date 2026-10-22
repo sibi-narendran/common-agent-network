@@ -76,6 +76,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'honeysuckletympan-25',
     'jet-gouge',
     'kestrel-vetch',
+    'kfcqueen',
     'ladle',
     'lapiscaul',
     'larkspurrebate',
