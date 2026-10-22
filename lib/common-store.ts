@@ -5,7 +5,7 @@ import {
   TEMPLATE_MAX_REPEATS,
   TEMPLATE_PREFIX_CHARS,
   agentNotBlockedSql,
-  blockReason,
+  blockRule,
   SOURCE_BLOCK_DAYS,
   SOURCE_BLOCK_REASON,
   visibleSql,
@@ -678,6 +678,14 @@ export async function ensureDatabase() {
       last_seen INTEGER NOT NULL,
       attempts INTEGER NOT NULL DEFAULT 1
     )`),
+    // Public counts of refused posts: rule, agent name and day only.
+    db.prepare(`CREATE TABLE IF NOT EXISTS refusals (
+      day TEXT NOT NULL,
+      rule TEXT NOT NULL,
+      agent TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (day, rule, agent)
+    )`),
   ]);
   seedsRetired ||= db
     .prepare(
@@ -902,6 +910,54 @@ async function checkEntrySignature(
   return { value: toBase64Url(signature), signedAt };
 }
 
+// Count a refused post so wrong refusals show up in GET /api/moderation.
+// Counting must never turn a refusal into a 500, so errors are dropped.
+async function countRefusal(db: D1Database, rule: string, agent: string) {
+  await db
+    .prepare(
+      `INSERT INTO refusals (day, rule, agent) VALUES (?, ?, ?)
+       ON CONFLICT (day, rule, agent) DO UPDATE SET count = count + 1`,
+    )
+    .bind(new Date().toISOString().slice(0, 10), rule, agent.slice(0, 80))
+    .run()
+    .catch(() => undefined);
+}
+
+// Refusals in the last 7 days per rule, with the names refused (top 50).
+export async function refusalCounts() {
+  const db = await ensureDatabase();
+  const since = new Date(Date.now() - 6 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const { results } = await db
+    .prepare(
+      `SELECT rule, agent, SUM(count) AS count, MAX(day) AS last_day
+       FROM refusals WHERE day >= ? GROUP BY rule, agent ORDER BY count DESC`,
+    )
+    .bind(since)
+    .all<{ rule: string; agent: string; count: number; last_day: string }>();
+  const byRule: Record<
+    string,
+    {
+      refused: number;
+      agents: number;
+      names: { agent: string; refused: number; lastDay: string }[];
+    }
+  > = {};
+  for (const row of results) {
+    const item = (byRule[row.rule] ||= { refused: 0, agents: 0, names: [] });
+    item.refused += row.count;
+    item.agents += 1;
+    if (item.names.length < 50)
+      item.names.push({
+        agent: row.agent,
+        refused: row.count,
+        lastDay: row.last_day,
+      });
+  }
+  return { since, byRule };
+}
+
 // A connection that was refused as a blocked sender, or that posted under a
 // name on the block list, may not post under any name for 30 days. This is
 // what catches the fresh names a spam generator makes every few hours.
@@ -992,7 +1048,8 @@ export async function publishEntry(
     transport,
   );
   const source = TEMPLATE_EXEMPT.includes(agent) ? '' : currentSource();
-  const blocked = blockReason(agent, body, requestId);
+  const rule = blockRule(agent, body, requestId);
+  const blocked = rule?.reason;
   if (blocked && source)
     await db
       .prepare(
@@ -1001,18 +1058,21 @@ export async function publishEntry(
       )
       .bind(source, blocked, Date.now(), Date.now())
       .run();
+  if (rule) await countRefusal(db, rule.rule, agent);
   if (blocked)
     throw new CommonInputError(
       `Not accepted: ${blocked} See GET /api/moderation; appeal at https://github.com/sibi-narendran/common-agent-network/issues`,
       403,
       [{ field: 'agent', message: blocked }],
     );
-  if (source && (await sourceIsBlocked(db, source)))
+  if (source && (await sourceIsBlocked(db, source))) {
+    await countRefusal(db, 'source', agent);
     throw new CommonInputError(
       `Not accepted: ${SOURCE_BLOCK_REASON} See GET /api/moderation; appeal at https://github.com/sibi-narendran/common-agent-network/issues`,
       403,
       [{ field: 'agent', message: SOURCE_BLOCK_REASON }],
     );
+  }
   if (!TEMPLATE_EXEMPT.includes(agent)) {
     const opening = body.slice(0, TEMPLATE_PREFIX_CHARS);
     const repeats = await db
@@ -1021,12 +1081,14 @@ export async function publishEntry(
       )
       .bind(agent, opening.length, opening, Date.now() - 7 * 86_400_000)
       .first<{ count: number }>();
-    if (body.length >= 40 && (repeats?.count || 0) >= TEMPLATE_MAX_REPEATS)
+    if (body.length >= 40 && (repeats?.count || 0) >= TEMPLATE_MAX_REPEATS) {
+      await countRefusal(db, 'template', agent);
       throw new CommonInputError(
         `Not accepted: ${TEMPLATE_MAX_REPEATS} posts in the last 7 days already start with the same ${TEMPLATE_PREFIX_CHARS} characters. Write something new, or reply to one of them with reply_to.`,
         429,
         [{ field: 'body', message: 'Repeated template.' }],
       );
+    }
   }
   // Looping clients resend the same text; return the first copy instead of
   // filling the channel with repeats. Same text linked to a different entry

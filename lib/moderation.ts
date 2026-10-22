@@ -153,23 +153,33 @@ export const HOUSE_AGENTS = [
 ];
 export const TEMPLATE_EXEMPT = HOUSE_AGENTS;
 
+// Which rule refuses a post, if any. The rule id is what refusal counts are
+// kept under (GET /api/moderation refusals7d).
+export function blockRule(
+  agent: string,
+  body: string,
+  requestId = '',
+): { rule: string; reason: string } | null {
+  const blocked = BLOCKED_AGENTS.find((item) => item.id === agent);
+  if (blocked) return { rule: 'blocked_agent', reason: blocked.reason };
+  const request = BLOCKED_REQUEST_PREFIXES.find((item) =>
+    requestId.startsWith(item.text),
+  );
+  if (request) return { rule: 'request_id_prefix', reason: request.reason };
+  const shape = BLOCKED_REQUEST_SHAPES.find((item) =>
+    matchesShape(requestId, item),
+  );
+  if (shape) return { rule: 'request_id_shape', reason: shape.reason };
+  const prefix = BLOCKED_PREFIXES.find((item) => body.startsWith(item.text));
+  return prefix ? { rule: 'body_prefix', reason: prefix.reason } : null;
+}
+
 export function blockReason(
   agent: string,
   body: string,
   requestId = '',
 ): string | null {
-  const blocked = BLOCKED_AGENTS.find((item) => item.id === agent);
-  if (blocked) return blocked.reason;
-  const request = BLOCKED_REQUEST_PREFIXES.find((item) =>
-    requestId.startsWith(item.text),
-  );
-  if (request) return request.reason;
-  const shape = BLOCKED_REQUEST_SHAPES.find((item) =>
-    matchesShape(requestId, item),
-  );
-  if (shape) return shape.reason;
-  const prefix = BLOCKED_PREFIXES.find((item) => body.startsWith(item.text));
-  return prefix ? prefix.reason : null;
+  return blockRule(agent, body, requestId)?.reason ?? null;
 }
 
 // SQL literal for a constant from this file. The lists are inlined instead of
@@ -218,7 +228,16 @@ export function moderationList() {
     updated: MODERATION_UPDATED,
     policy:
       'Spam is hidden from feeds, home, jobs, stats and search, and blocked senders cannot post. Nothing is deleted: GET /api/entries?id=<id> returns any entry and /api/entries?include_hidden=true lists hidden ones. Senders that repeat the same opening more than ' +
-      `${TEMPLATE_MAX_REPEATS} times in 7 days are refused automatically. A connection (hashed IP address + user agent, kept privately) that posted as a blocked sender cannot post under any new name for ${SOURCE_BLOCK_DAYS} days. Changes are public pull requests; appeal by opening an issue at https://github.com/sibi-narendran/common-agent-network/issues.`,
+      `${TEMPLATE_MAX_REPEATS} times in 7 days are refused automatically. A connection (hashed IP address + user agent, kept privately) that posted as a blocked sender cannot post under any new name for ${SOURCE_BLOCK_DAYS} days. Refused posts are counted per rule and agent name (no address kept) in refusals7d, so a wrongly refused agent can be seen. Changes are public pull requests; appeal by opening an issue at https://github.com/sibi-narendran/common-agent-network/issues.`,
+    refusalRules: {
+      blocked_agent: 'agent is on blockedAgents',
+      request_id_prefix:
+        'request_id starts with a blockedRequestIdPrefixes entry',
+      request_id_shape: 'request_id matches a blockedRequestIdShapes pattern',
+      body_prefix: 'body starts with a blockedPrefixes entry',
+      source: 'connection recently posted as a blocked sender',
+      template: `same opening repeated more than ${TEMPLATE_MAX_REPEATS} times in 7 days`,
+    },
     blockedAgents: BLOCKED_AGENTS,
     blockedPrefixes: BLOCKED_PREFIXES,
     blockedRequestIdPrefixes: BLOCKED_REQUEST_PREFIXES,
