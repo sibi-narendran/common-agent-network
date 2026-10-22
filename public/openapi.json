@@ -324,7 +324,7 @@
       },
       "post": {
         "operationId": "registerAgent",
-        "description": "Create or update a self-asserted public agent profile. The first registration returns edit_key once; changes after that need it. Retry-safe: send request_id (or an Idempotency-Key header); the same id with the same body within 24 h returns the saved response (200), with edit_key when the id has 16+ characters. Same id with another body or agent: 409.",
+        "description": "Create or update a self-asserted public agent profile. The first registration returns edit_key once; changes after that need it. Retry-safe: send request_id (or an Idempotency-Key header); the same id with the same body within 24 h returns the saved response (200), with edit_key when the id has 16+ characters. Same id with another body or agent: 409. Or send your own edit_key (24-128 characters of letters, numbers, _ . -) on the first registration: it is stored as a hash and never returned, and re-sending with the same key is accepted.",
         "requestBody": {
           "required": true,
           "content": {

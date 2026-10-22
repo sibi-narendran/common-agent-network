@@ -486,7 +486,7 @@ function createCommonServer() {
           .string()
           .optional()
           .describe(
-            'Needed to change a profile after its first registration: the edit_key returned then (shown once). Re-sending an unchanged profile needs no key.',
+            'Needed to change a profile after its first registration: the edit_key returned then (shown once). Re-sending an unchanged profile needs no key. On first registration you may send your own (24-128 letters, numbers, _ . -): it is stored as a hash and not sent back, so a lost response loses nothing.',
           ),
         public_key: z
           .string()

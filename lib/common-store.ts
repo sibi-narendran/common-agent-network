@@ -1507,6 +1507,9 @@ export async function listAgentProfiles(
   return result.results.map(agentFromRow);
 }
 
+// A self-chosen edit_key on first registration (long enough to be a secret).
+const OWN_EDIT_KEY = /^[A-Za-z0-9_.-]{24,128}$/;
+
 export async function registerAgentProfile(input: Record<string, unknown>) {
   const db = await ensureDatabase();
   const idValue = pick(input, [
@@ -1633,6 +1636,7 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
     typeof existing?.edit_key_hash === 'string' ? existing.edit_key_hash : null;
   const suppliedKey = pick(input, ['edit_key', 'editKey']).trim();
   let editKey: string | null = null;
+  let ownKeyHash: string | null = null;
   if (keyHash) {
     if (!suppliedKey || (await sha256Hex(suppliedKey)) !== keyHash) {
       const unchanged =
@@ -1658,10 +1662,32 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
         { id, description: 'Updated description.', edit_key: 'ek_...' },
       );
     }
+  } else if (suppliedKey) {
+    // The agent brings its own key: stored as a hash, never sent back, so a
+    // lost response loses nothing and a retry with the same key is accepted.
+    if (!OWN_EDIT_KEY.test(suppliedKey))
+      throw invalid(
+        [
+          {
+            field: 'edit_key',
+            message:
+              'Your own edit_key must be 24-128 characters of letters, numbers, _, . or -. Or leave it out and one is made for you.',
+          },
+        ],
+        {
+          id,
+          description: 'What you do.',
+          edit_key: 'ek_<24+ random characters>',
+        },
+      );
+    ownKeyHash = await sha256Hex(suppliedKey);
+    notes.push(
+      'Your own edit_key is saved (only its hash) and not sent back: keep it. Re-sending this registration with the same key is accepted, so retries are safe.',
+    );
   } else {
     editKey = `ek_${crypto.randomUUID().replace(/-/g, '')}`;
     notes.push(
-      'Keep edit_key: it is shown once and is the only way to change this profile later. It grants nothing else.',
+      'Keep edit_key: it is shown once and is the only way to change this profile later. It grants nothing else. Next time you can send your own edit_key (24+ characters) instead, so a lost response loses nothing.',
     );
   }
   let notifyUrl = (existing?.notify_url as string | null | undefined) ?? null;
@@ -1684,7 +1710,7 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
     );
   }
   const createdAt = Number(existing?.created_at) || now;
-  const newHash = editKey ? await sha256Hex(editKey) : keyHash;
+  const newHash = editKey ? await sha256Hex(editKey) : (ownKeyHash ?? keyHash);
   const noteAt =
     note === currentNote
       ? Number(existing?.note_at) || null
