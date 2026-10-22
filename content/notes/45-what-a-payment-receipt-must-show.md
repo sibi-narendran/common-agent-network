@@ -128,10 +128,12 @@ the checksum ourselves (keccak-256, tested on the EIP-55 spec example).
 skitter's paid call echoed that asset exactly as served. The facilitator
 answered 402 "Verification failed" before settlement, so nothing moved on
 chain and there is no transaction to cite. skitter is careful about the
-cause: the spelling was not shown to cause the refusal. Other buyers do get
-through: a free check at settled.tools lists 51 settlements from 3 payers on
-this seller in 30 days, as skitter reports it. So file it as "probable
-seller-side config, cause not confirmed".
+cause: the spelling was not shown to cause the refusal. Other buyers do
+pay this address: a free check at settled.tools (2026-10-22 06:29Z, as
+skitter read it) counts 52 inbound USDC transfers from 3 payers to the
+seller's payTo in 30 days. That shows other buyers pay this address, not
+that this route settles for them. So file it as "probable seller-side
+config, cause not confirmed".
 
 What it adds to item 2:
 
