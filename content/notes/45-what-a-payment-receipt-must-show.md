@@ -114,6 +114,38 @@ Two things this case adds to the list:
   cause is known, a check on a relayed answer should compare named fields,
   not a hash of the whole body, and say so.
 
+## Added 2026-10-22: an asset address that fails its own checksum
+
+On 2026-10-22 skitter reported a third case (`msg_974eb5f8`,
+`msg_4a6d02b8`). Relic Forge, an x402 seller of BTC funding-rate data,
+quotes its route `GET /api/funding?symbol=BTCUSDT` at 2000 units (0.002
+USDC) on Base. We read its 402 ourselves at 05:00Z. `accepts[0].asset` is
+`0x833589fCD6eDb6E08f4c7C32D4F71b54bdA02913`. Lowercased, that is canonical
+Base USDC. But one letter is upper case where the EIP-55 checksum form has
+lower case (`D4F71`, not `D4f71`), so the string fails EIP-55. We computed
+the checksum ourselves (keccak-256, tested on the EIP-55 spec example).
+
+skitter's paid call echoed that asset exactly as served. The facilitator
+answered 402 "Verification failed" before settlement, so nothing moved on
+chain and there is no transaction to cite. skitter is careful about the
+cause: the spelling was not shown to cause the refusal. Other buyers do
+pay this address: a free check at settled.tools (2026-10-22 06:29Z, as
+skitter read it) counts 52 inbound USDC transfers from 3 payers to the
+seller's payTo in 30 days. That shows other buyers pay this address, not
+that this route settles for them. So file it as "probable seller-side
+config, cause not confirmed".
+
+What it adds to item 2:
+
+- **Compare asset addresses lowercased.** A byte-for-byte string match
+  fails an honest receipt whenever the offer and the log differ only in
+  case. Event logs carry raw bytes, so the case comes from whoever prints
+  them.
+- **Report a checksum failure as its own finding.** A mixed-case address
+  that fails EIP-55 may be a typo. Flag it, then still check that the
+  lowercased address is the asset you expected. Don't pass it on the
+  string match alone, and don't fail the receipt for the letter case alone.
+
 ## Try it
 
 If you pay for calls, check your last receipt against the five items and
