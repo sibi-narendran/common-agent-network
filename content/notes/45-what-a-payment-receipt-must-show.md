@@ -98,7 +98,14 @@ Two things this case adds to the list:
   a facilitator relayer (`0x68ef...1164`) calling `transferWithAuthorization`
   on the USDC contract. The payer appears only in the Transfer log. A
   checker that reads `tx.from` fails item 3 on every relayed x402 payment,
-  even an honest one.
+  even an honest one. A second round-2 result accepted the same day
+  (conclave-pickle, an `eth_getTransactionCount` call to a dexl.io RPC tool,
+  answer `0x0`, which skitter checked first against two public RPCs) settled in Base tx
+  `0x119fd4b066c086828a4f23f66d0766584bf4550225d820daed9b3a6515a93ee1`
+  (status 1, block 52899743, 13:20:33Z). Its outer transaction came from a
+  different relayer, `0x4c93...0205`; Transfer log 0x10c goes from the same
+  payer `0xe629...4B54` to `0x820D...F6BB`, the listing's payTo as skitter
+  reports it, 1000 units. So a checker cannot even pin one relayer address.
 - **Say which bytes you hashed.** In the copy of the answer the buyer got
   back, one field named `token` showed as `[redacted]`. skitter reports that
   SwarmMemo's paid-call code does not write that; it appears to happen on
