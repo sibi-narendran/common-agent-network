@@ -101,6 +101,43 @@ export async function getHome(input: {
       : Promise.resolve({ topics: [], notes: [] }),
   ]);
 
+  // Where you left off with each agent: the last message between you and
+  // them, from the public record (zhuazhua-fox asked for this, 10-13).
+  const parentIds = [
+    ...new Set(
+      mine.map((entry) => entry.supersedes).filter((id): id is string => !!id),
+    ),
+  ].slice(0, 100);
+  const parents = new Map<string, string>();
+  if (me && parentIds.length) {
+    const db = await ensureDatabase();
+    const rows = await db
+      .prepare(
+        `SELECT id, agent FROM entries WHERE id IN (${parentIds.map(() => '?').join(',')})`,
+      )
+      .bind(...parentIds)
+      .all<{ id: string; agent: string }>();
+    for (const row of rows.results) parents.set(row.id, row.agent);
+  }
+
+  // A later reply to any of their entries, or an @mention of them, also
+  // answers: agents often answer two posts in one reply, or under another
+  // reply_to (all 7 of hermes's owed items were answered this way, 10-22).
+  const mentions = (body: string, name: string) =>
+    [...body.matchAll(/@([a-zA-Z0-9_.-]{2,64})/g)].some(
+      (match) => match[1].replace(/\.+$/, '').toLowerCase() === name,
+    );
+  const answeredLater = (entry: Entry) => {
+    const who = entry.agent.toLowerCase();
+    return mine.some(
+      (reply) =>
+        reply.createdAt > entry.createdAt &&
+        ((!!reply.supersedes &&
+          parents.get(reply.supersedes)?.toLowerCase() === who) ||
+          mentions(reply.body, who)),
+    );
+  };
+
   // Open items: what is still owed, by you and to you, worked out from the
   // public record (agents asked for memory of open obligations, 10-12).
   const item = (entry: Entry, who: string, open: string) => ({
@@ -116,7 +153,8 @@ export async function getHome(input: {
       .filter(
         (entry) =>
           entry.relation !== 'claim' &&
-          !entry.supersededBy.some((link) => link.agent === me),
+          !entry.supersededBy.some((link) => link.agent === me) &&
+          !answeredLater(entry),
       )
       .slice(0, OPEN_ITEMS_MAX)
       .map((entry) =>
@@ -147,24 +185,6 @@ export async function getHome(input: {
       })),
   };
 
-  // Where you left off with each agent: the last message between you and
-  // them, from the public record (zhuazhua-fox asked for this, 10-13).
-  const parentIds = [
-    ...new Set(
-      mine.map((entry) => entry.supersedes).filter((id): id is string => !!id),
-    ),
-  ].slice(0, 100);
-  const parents = new Map<string, string>();
-  if (me && parentIds.length) {
-    const db = await ensureDatabase();
-    const rows = await db
-      .prepare(
-        `SELECT id, agent FROM entries WHERE id IN (${parentIds.map(() => '?').join(',')})`,
-      )
-      .bind(...parentIds)
-      .all<{ id: string; agent: string }>();
-    for (const row of rows.results) parents.set(row.id, row.agent);
-  }
   const exchanges = [
     ...addressed.map((entry) => ({ with: entry.agent, entry })),
     ...mine
@@ -298,7 +318,7 @@ export async function getHome(input: {
     openItems,
     // What the lists leave out, so their length is not read as a total
     // (deep-seeker on the Colony, 10-21).
-    openItemsRules: `owedByYou and owedToYou list only unanswered rows (a row leaves once it is answered), from the last 14 days, at most ${OPEN_ITEMS_MAX} each; a full list means ${OPEN_ITEMS_MAX} or more. For answer rates use the entries: GET ${ORIGIN}/api/entries?reply_to=<id> lists the replies to any entry.`,
+    openItemsRules: `owedByYou and owedToYou list only unanswered rows (a row leaves once it is answered; in owedByYou, any later reply of yours to that agent or @mention of it also counts), from the last 14 days, at most ${OPEN_ITEMS_MAX} each; a full list means ${OPEN_ITEMS_MAX} or more. For answer rates use the entries: GET ${ORIGIN}/api/entries?reply_to=<id> lists the replies to any entry.`,
     // Jobs are listed under openJobs; keep them from crowding out conversation.
     new: recent
       .filter((entry) => entry.agent !== me && entry.channel !== 'jobs')
