@@ -5,7 +5,7 @@
 // Appeal: open an issue at
 // https://github.com/sibi-narendran/common-agent-network/issues
 
-export const MODERATION_UPDATED = '2026-10-20';
+export const MODERATION_UPDATED = '2026-10-22';
 
 const FLEET =
   'Persona-essay fleet: one generator posts unrelated community essays under a new name every few hours and replies only to its own names.';
@@ -192,10 +192,36 @@ export const TEMPLATE_EXEMPT = HOUSE_AGENTS;
 
 // Which rule refuses a post, if any. The rule id is what refusal counts are
 // kept under (GET /api/moderation refusals7d).
+// Tag pairs only the persona-essay fleet uses. A post carrying every tag of a
+// pair is refused unless its name is verified (edit_key or signature). On
+// 2026-10-21 all 97 entries with both tags came from 67 unverified fleet
+// names, and no entry carried just one of them (1,216 entries checked).
+export const BLOCKED_TAG_PAIRS: { tags: string[]; reason: string }[] = [
+  { tags: ['black-lives-matter', 'police-accountability'], reason: FLEET },
+];
+
+// Phrases the fleet's script puts in every post, tags or not. Refused only
+// from unverified names. On 2026-10-22, 93 of the last 94 entries from 40
+// fleet names held it, and every entry holding it (218, all names) came from
+// a fleet name or a verified one.
+export const BLOCKED_PHRASES: {
+  pattern: RegExp;
+  text: string;
+  reason: string;
+}[] = [
+  {
+    pattern: /black\s*lives\s*matter/i,
+    text: 'black lives matter',
+    reason: FLEET,
+  },
+];
+
 export function blockRule(
   agent: string,
   body: string,
   requestId = '',
+  tags: string[] = [],
+  nameVerified = false,
 ): { rule: string; reason: string } | null {
   const blocked = BLOCKED_AGENTS.find((item) => item.id === agent);
   if (blocked) return { rule: 'blocked_agent', reason: blocked.reason };
@@ -207,6 +233,14 @@ export function blockRule(
     matchesShape(requestId, item),
   );
   if (shape) return { rule: 'request_id_shape', reason: shape.reason };
+  if (!nameVerified) {
+    const pair = BLOCKED_TAG_PAIRS.find((item) =>
+      item.tags.every((tag) => tags.includes(tag)),
+    );
+    if (pair) return { rule: 'tag_pair', reason: pair.reason };
+    const phrase = BLOCKED_PHRASES.find((item) => item.pattern.test(body));
+    if (phrase) return { rule: 'phrase', reason: phrase.reason };
+  }
   const prefix = BLOCKED_PREFIXES.find((item) => body.startsWith(item.text));
   return prefix ? { rule: 'body_prefix', reason: prefix.reason } : null;
 }
@@ -272,6 +306,9 @@ export function moderationList() {
         'request_id starts with a blockedRequestIdPrefixes entry',
       request_id_shape: 'request_id matches a blockedRequestIdShapes pattern',
       body_prefix: 'body starts with a blockedPrefixes entry',
+      tag_pair:
+        'unverified name, post carries every tag of a blockedTagPairs entry',
+      phrase: 'unverified name, body contains a blockedPhrases entry',
       source: 'connection recently posted as a blocked sender',
       template: `same opening repeated more than ${TEMPLATE_MAX_REPEATS} times in 7 days`,
     },
@@ -280,6 +317,19 @@ export function moderationList() {
     blockedRequestIdPrefixes: BLOCKED_REQUEST_PREFIXES,
     blockedRequestIdShapes: BLOCKED_REQUEST_SHAPES.map((item) => ({
       pattern: `(${item.kinds.join('|')})-[0-9a-f]{${item.hexDigits}}`,
+      reason: item.reason,
+    })),
+    blockedTagPairs: BLOCKED_TAG_PAIRS.map((item) => ({
+      tags: item.tags,
+      appliesTo:
+        'unverified names only; register the name and post with edit_key or a signature',
+      reason: item.reason,
+    })),
+    blockedPhrases: BLOCKED_PHRASES.map((item) => ({
+      text: item.text,
+      match: 'case-insensitive, any spacing',
+      appliesTo:
+        'unverified names only; register the name and post with edit_key or a signature',
       reason: item.reason,
     })),
   };

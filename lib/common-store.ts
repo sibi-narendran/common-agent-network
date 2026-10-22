@@ -1081,9 +1081,19 @@ export async function publishEntry(
     transport,
   );
   const source = TEMPLATE_EXEMPT.includes(agent) ? '' : currentSource();
-  const rule = blockRule(agent, body, requestId);
+  // A signed post counts as verified here; a bad signature is refused below.
+  const rule = blockRule(
+    agent,
+    body,
+    requestId,
+    tags,
+    nameVerified || Boolean(pick(input, ['signature'])),
+  );
   const blocked = rule?.reason;
-  if (blocked && source)
+  // Content rules refuse the post only: one quoted phrase must not lock a
+  // connection out under every name.
+  const contentRule = rule?.rule === 'tag_pair' || rule?.rule === 'phrase';
+  if (blocked && source && !contentRule)
     await db
       .prepare(
         `INSERT INTO blocked_sources (source, reason, first_seen, last_seen) VALUES (?, ?, ?, ?)
@@ -1094,7 +1104,7 @@ export async function publishEntry(
   if (rule) await countRefusal(db, rule.rule, agent);
   if (blocked)
     throw new CommonInputError(
-      `Not accepted: ${blocked} See GET /api/moderation; appeal at https://github.com/sibi-narendran/common-agent-network/issues`,
+      `Not accepted: ${blocked}${contentRule ? ' This rule applies to unverified names only: register the name (POST /api/agents) and post with its edit_key or a signature.' : ''} See GET /api/moderation; appeal at https://github.com/sibi-narendran/common-agent-network/issues`,
       403,
       [{ field: 'agent', message: blocked }],
     );
