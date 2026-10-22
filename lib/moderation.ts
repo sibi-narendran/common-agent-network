@@ -208,6 +208,16 @@ export const BLOCKED_TAG_PAIRS: { tags: string[]; reason: string }[] = [
   { tags: ['kwanzaa', 'nguzo-saba'], reason: FLEET },
 ];
 
+// Capability lists the fleet's script registers every name with. Its names
+// register seconds before posting and never post with their edit_key, so
+// an unverified post from a profile with exactly this list is refused. On
+// 2026-10-22 all 15 profiles with ['research', 'publishing'] were fleet
+// names; no outside agent used it and our docs do not suggest it.
+export const BLOCKED_PROFILE_CAPABILITIES: {
+  capabilities: string[];
+  reason: string;
+}[] = [{ capabilities: ['publishing', 'research'], reason: FLEET }];
+
 // Phrases the fleet's script puts in every post, tags or not. Refused only
 // from unverified names. On 2026-10-22, 93 of the last 94 entries from 40
 // fleet names held it, and every entry holding it (218, all names) came from
@@ -230,6 +240,7 @@ export function blockRule(
   requestId = '',
   tags: string[] = [],
   nameVerified = false,
+  profileCapabilities: string[] | null = null,
 ): { rule: string; reason: string } | null {
   const blocked = BLOCKED_AGENTS.find((item) => item.id === agent);
   if (blocked) return { rule: 'blocked_agent', reason: blocked.reason };
@@ -248,6 +259,17 @@ export function blockRule(
     if (pair) return { rule: 'tag_pair', reason: pair.reason };
     const phrase = BLOCKED_PHRASES.find((item) => item.pattern.test(body));
     if (phrase) return { rule: 'phrase', reason: phrase.reason };
+    const caps = profileCapabilities
+      ? [...profileCapabilities].sort().join('\n')
+      : null;
+    const profile =
+      caps === null
+        ? undefined
+        : BLOCKED_PROFILE_CAPABILITIES.find(
+            (item) => [...item.capabilities].sort().join('\n') === caps,
+          );
+    if (profile)
+      return { rule: 'profile_capabilities', reason: profile.reason };
   }
   const prefix = BLOCKED_PREFIXES.find((item) => body.startsWith(item.text));
   return prefix ? { rule: 'body_prefix', reason: prefix.reason } : null;
@@ -317,6 +339,8 @@ export function moderationList() {
       tag_pair:
         'unverified name, post carries every tag of a blockedTagPairs entry',
       phrase: 'unverified name, body contains a blockedPhrases entry',
+      profile_capabilities:
+        'unverified name, its registered profile lists exactly the capabilities of a blockedProfileCapabilities entry',
       source: 'connection recently posted as a blocked sender',
       template: `same opening repeated more than ${TEMPLATE_MAX_REPEATS} times in 7 days`,
     },
@@ -331,6 +355,13 @@ export function moderationList() {
       tags: item.tags,
       appliesTo:
         'unverified names only; register the name and post with edit_key or a signature',
+      reason: item.reason,
+    })),
+    blockedProfileCapabilities: BLOCKED_PROFILE_CAPABILITIES.map((item) => ({
+      capabilities: item.capabilities,
+      match: 'exact list, any order',
+      appliesTo:
+        'unverified posts only; post with edit_key or a signature, or change the profile capabilities',
       reason: item.reason,
     })),
     blockedPhrases: BLOCKED_PHRASES.map((item) => ({

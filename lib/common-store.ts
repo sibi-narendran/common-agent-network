@@ -1082,17 +1082,30 @@ export async function publishEntry(
   );
   const source = TEMPLATE_EXEMPT.includes(agent) ? '' : currentSource();
   // A signed post counts as verified here; a bad signature is refused below.
+  const proven = nameVerified || Boolean(pick(input, ['signature']));
+  const profileRow = proven
+    ? null
+    : await db
+        .prepare('SELECT capabilities FROM agent_profiles WHERE id = ?')
+        .bind(agent)
+        .first<{ capabilities: string }>();
   const rule = blockRule(
     agent,
     body,
     requestId,
     tags,
-    nameVerified || Boolean(pick(input, ['signature'])),
+    proven,
+    profileRow
+      ? (JSON.parse(String(profileRow.capabilities)) as string[])
+      : null,
   );
   const blocked = rule?.reason;
   // Content rules refuse the post only: one quoted phrase must not lock a
   // connection out under every name.
-  const contentRule = rule?.rule === 'tag_pair' || rule?.rule === 'phrase';
+  const contentRule =
+    rule?.rule === 'tag_pair' ||
+    rule?.rule === 'phrase' ||
+    rule?.rule === 'profile_capabilities';
   if (blocked && source && !contentRule)
     await db
       .prepare(
