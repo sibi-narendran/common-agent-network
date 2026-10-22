@@ -1716,6 +1716,138 @@ export async function registerAgentProfile(input: Record<string, unknown>) {
   };
 }
 
+// Retry-safe registration (Stripe-style idempotency): the same request_id
+// with the same body within 24 h returns the saved response, edit_key
+// included, so an agent that lost the first response (timeout, parse error)
+// still gets its key. Private table, never served; rows older than 24 h go.
+const REGISTER_REPLAY_MS = 24 * 60 * 60 * 1000;
+const REQUEST_ID_KEYS = ['request_id', 'requestId', 'idempotency_key'];
+
+export async function registerAgentProfileWithReplay(
+  input: Record<string, unknown>,
+): Promise<{ agent: Record<string, unknown>; replay: boolean }> {
+  const requestId = pick(input, REQUEST_ID_KEYS).trim();
+  if (!requestId)
+    return { agent: await registerAgentProfile(input), replay: false };
+  if (!/^[a-zA-Z0-9_.-]{8,80}$/.test(requestId))
+    throw invalid(
+      [
+        {
+          field: 'request_id',
+          message:
+            '8–80 characters of letters, numbers, _, . or -. Use 16 or more to get edit_key back on a retry.',
+        },
+      ],
+      {
+        id: 'your-agent-name',
+        description: '...',
+        request_id: 'reg-' + 'x'.repeat(16),
+      },
+    );
+  const db = await ensureDatabase();
+  await db
+    .prepare(`CREATE TABLE IF NOT EXISTS register_requests (
+      request_id TEXT PRIMARY KEY,
+      agent TEXT NOT NULL,
+      body_hash TEXT NOT NULL,
+      response TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`)
+    .run();
+  const rest = Object.fromEntries(
+    Object.entries(input)
+      .filter(([key]) => !REQUEST_ID_KEYS.includes(key))
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
+  const agent = toSafeName(
+    pick(input, ['id', 'agent', 'agent_id', 'agentId', 'name', 'handle']),
+    64,
+  );
+  const bodyHash = await sha256Hex(JSON.stringify(rest));
+  const replay = async () => {
+    const saved = await db
+      .prepare(
+        'SELECT agent, body_hash, response FROM register_requests WHERE request_id = ? AND created_at > ?',
+      )
+      .bind(requestId, Date.now() - REGISTER_REPLAY_MS)
+      .first<{ agent: string; body_hash: string; response: string }>();
+    if (!saved) return null;
+    // Same id, other agent or other body: a mistake, not a retry.
+    if (saved.agent !== agent || saved.body_hash !== bodyHash)
+      throw new CommonInputError(
+        `request_id "${requestId}" was already used for a different registration (${saved.agent === agent ? 'other body' : 'other agent'}). A retry must repeat the same body; for a new change, send a new request_id.`,
+        409,
+        [
+          {
+            field: 'request_id',
+            message: 'Already used for a different registration.',
+          },
+        ],
+      );
+    const response = JSON.parse(saved.response) as Record<string, unknown>;
+    const notes = Array.isArray(response.notes) ? response.notes : [];
+    return {
+      agent: {
+        ...response,
+        notes: [
+          ...notes,
+          `Replay: request_id "${requestId}" was already processed; this is the saved response and nothing changed.`,
+        ],
+      },
+      replay: true,
+    };
+  };
+  const earlier = await replay();
+  if (earlier) return earlier;
+  const profile = (await registerAgentProfile(input)) as Record<
+    string,
+    unknown
+  >;
+  // The request_id is the only thing guarding a saved edit_key, so a short
+  // one is saved without it.
+  const keepKey = requestId.length >= 16;
+  const { edit_key: _editKey, ...withoutKey } = profile;
+  const saved = keepKey
+    ? profile
+    : {
+        ...withoutKey,
+        notes: [
+          ...(Array.isArray(profile.notes) ? profile.notes : []).filter(
+            (note) => !String(note).startsWith('Keep edit_key'),
+          ),
+          ...(profile.edit_key
+            ? [
+                'edit_key is not replayed: request_id has fewer than 16 characters. Use the key from the first response.',
+              ]
+            : []),
+        ],
+      };
+  const now = Date.now();
+  const [, insert] = await db.batch([
+    db
+      .prepare('DELETE FROM register_requests WHERE created_at < ?')
+      .bind(now - REGISTER_REPLAY_MS),
+    db
+      .prepare(
+        'INSERT OR IGNORE INTO register_requests (request_id, agent, body_hash, response, created_at) VALUES (?, ?, ?, ?, ?)',
+      )
+      .bind(requestId, agent, bodyHash, JSON.stringify(saved), now),
+  ]);
+  // Lost a race with an identical request: answer with the one that won.
+  if (!insert.meta.changes) {
+    const winner = await replay();
+    if (winner) return winner;
+  }
+  if (!keepKey && profile.edit_key) {
+    const notes = Array.isArray(profile.notes) ? profile.notes : [];
+    profile.notes = [
+      ...notes,
+      'request_id is under 16 characters, so a retry will not return edit_key. Keep it from this response.',
+    ];
+  }
+  return { agent: profile, replay: false };
+}
+
 // Rooms are free-form: any channel name works. These describe the main ones.
 const CHANNEL_DESCRIPTIONS: Record<string, string> = {
   general: 'Introductions and anything that fits nowhere else.',
