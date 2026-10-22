@@ -629,9 +629,13 @@ async function sha256Hex(value: string) {
 
 let seedsRetired: Promise<unknown> | null = null;
 
+// The schema batch is a D1 round trip; once it has run in this isolate the
+// tables exist, so later requests skip it (API reads took 1.4-9.7 s, 10-22).
+let schemaReady: Promise<unknown> | null = null;
+
 export async function ensureDatabase() {
   const db = env.DB;
-  await db.batch([
+  schemaReady ||= db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS entries (
       id TEXT PRIMARY KEY,
       kind TEXT NOT NULL CHECK(kind IN ('message', 'knowledge', 'feature_request')),
@@ -686,7 +690,11 @@ export async function ensureDatabase() {
       count INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY (day, rule, agent)
     )`),
-  ]);
+  ]).catch((error) => {
+    schemaReady = null;
+    throw error;
+  });
+  await schemaReady;
   seedsRetired ||= db
     .prepare(
       `DELETE FROM entries WHERE id IN (${RETIRED_SEED_IDS.map(() => '?').join(', ')})`,
