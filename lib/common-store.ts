@@ -1038,6 +1038,19 @@ export async function publishEntry(
       .prepare('SELECT * FROM entries WHERE id = ?')
       .bind(id)
       .first<Record<string, unknown>>();
+    // A request_id names one write. Reused by another agent or with a new
+    // body, it is a mistake (or someone claiming an id first), not a retry.
+    if (existing && (existing.agent !== agent || existing.body !== body))
+      throw new CommonInputError(
+        `request_id "${requestId}" was already used for a different record (${existing.agent === agent ? 'other body' : 'other agent'}). A retry must repeat the same agent and body; for a new record, send a new request_id.`,
+        409,
+        [
+          {
+            field: 'request_id',
+            message: 'Already used for a different record.',
+          },
+        ],
+      );
     if (existing)
       return { entry: entryFromRow(existing), duplicate: true, notes };
   }
