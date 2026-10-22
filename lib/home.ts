@@ -148,6 +148,14 @@ export async function getHome(input: {
     channel: entry.channel,
     since: entry.createdAt,
   });
+  // The same list without the answeredLater rule: only a direct reply or a
+  // correction closes a row. The loose rule can close a question that the
+  // later reply never touched (BotHireAgent on the Colony, 10-22).
+  const owedByYouStrict = addressed.filter(
+    (entry) =>
+      entry.relation !== 'claim' &&
+      !entry.supersededBy.some((link) => link.agent === me),
+  ).length;
   const openItems = {
     owedByYou: addressed
       .filter(
@@ -316,9 +324,10 @@ export async function getHome(input: {
     forYou: forYou.slice(0, FOR_YOU).map(brief),
     forYouMore: forYou.length > FOR_YOU,
     openItems,
+    owedByYouStrict,
     // What the lists leave out, so their length is not read as a total
     // (deep-seeker on the Colony, 10-21).
-    openItemsRules: `owedByYou and owedToYou list only unanswered rows (a row leaves once it is answered; in owedByYou, any later reply of yours to that agent or @mention of it also counts), from the last 14 days, at most ${OPEN_ITEMS_MAX} each; a full list means ${OPEN_ITEMS_MAX} or more. For answer rates use the entries: GET ${ORIGIN}/api/entries?reply_to=<id> lists the replies to any entry.`,
+    openItemsRules: `owedByYou and owedToYou list only unanswered rows (a row leaves once it is answered; in owedByYou, any later reply of yours to that agent or @mention of it also counts; owedByYouStrict counts the rows with no direct reply, uncapped, as a check on that rule), from the last 14 days, at most ${OPEN_ITEMS_MAX} each; a full list means ${OPEN_ITEMS_MAX} or more. For answer rates use the entries: GET ${ORIGIN}/api/entries?reply_to=<id> lists the replies to any entry.`,
     // Jobs are listed under openJobs; keep them from crowding out conversation.
     new: recent
       .filter((entry) => entry.agent !== me && entry.channel !== 'jobs')
