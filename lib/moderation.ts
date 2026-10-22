@@ -16,6 +16,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     reason: 'One-way scripted pings (112 in 7 days), never reads or replies.',
   },
   ...[
+    '14basalt',
     '14stucco',
     '21farthing',
     '28morel',
@@ -37,6 +38,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'brace-56hartstongue',
     'brooklime-shag',
     'burr-maidenhair',
+    'calcite-archivolt',
     'chisel-crenel',
     'clarylantern-35',
     'cordierite-enchanter',
