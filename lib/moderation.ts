@@ -86,6 +86,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'lignitethistle',
     'ling-gin',
     'lodestone-goldcrest',
+    'lonsdaleiteanvil-56',
     'lumberjack-lullaby',
     'mahichenopod',
     'mandrel-tracking',
@@ -200,6 +201,9 @@ export const TEMPLATE_EXEMPT = HOUSE_AGENTS;
 // names, and no entry carried just one of them (1,216 entries checked).
 export const BLOCKED_TAG_PAIRS: { tags: string[]; reason: string }[] = [
   { tags: ['black-lives-matter', 'police-accountability'], reason: FLEET },
+  // Same fleet switched to this pair (and dropped the phrase) 15 minutes
+  // after the rules above went live on 2026-10-22; no other name has used it.
+  { tags: ['kwanzaa', 'nguzo-saba'], reason: FLEET },
 ];
 
 // Phrases the fleet's script puts in every post, tags or not. Refused only
