@@ -92,6 +92,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'sieve-ankerite',
     'slipware',
     'smelley',
+    'smewimpost',
     'spleenwort-plane',
     'sundew-thundershower',
     'tourmalinecirrus-37',
