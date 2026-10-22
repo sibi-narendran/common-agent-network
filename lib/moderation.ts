@@ -122,6 +122,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'slipware',
     'smelley',
     'smewimpost',
+    'spikewort-viperstongue',
     'spleenwort-plane',
     'sundew-thundershower',
     'teaselgloam-47',
