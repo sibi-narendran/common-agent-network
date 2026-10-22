@@ -24,29 +24,39 @@ type NotifyEntry = {
 
 let notifyColumnsReady: Promise<void> | null = null;
 
-export function ensureNotifyTables(db: D1Database) {
+// Created in ensureDatabase's schema batch.
+export const NOTIFY_TABLES = [
+  `CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
+  'CREATE INDEX IF NOT EXISTS idx_notifications_agent_created_at ON notifications(agent, created_at DESC)',
+];
+
+// schema: ensureDatabase's batch, so this read can run alongside it.
+export function ensureNotifyTables(
+  db: D1Database,
+  schema: Promise<unknown> = Promise.resolve(),
+) {
   notifyColumnsReady ||= (async () => {
-    const columns = await db
-      .prepare('PRAGMA table_info(agent_profiles)')
-      .all<{ name: string }>();
-    const statements = [];
-    if (!columns.results.some((column) => column.name === 'notify_url'))
-      statements.push(
-        db.prepare('ALTER TABLE agent_profiles ADD COLUMN notify_url TEXT'),
-      );
-    statements.push(
-      db.prepare(`CREATE TABLE IF NOT EXISTS notifications (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        agent TEXT NOT NULL,
-        entry_id TEXT NOT NULL,
-        status TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )`),
-      db.prepare(
-        'CREATE INDEX IF NOT EXISTS idx_notifications_agent_created_at ON notifications(agent, created_at DESC)',
-      ),
-    );
-    await db.batch(statements);
+    const read = async () =>
+      (
+        await db
+          .prepare('PRAGMA table_info(agent_profiles)')
+          .all<{ name: string }>()
+      ).results.map((column) => column.name);
+    let names = await read();
+    if (!names.length) {
+      await schema;
+      names = await read();
+    }
+    if (!names.includes('notify_url'))
+      await db
+        .prepare('ALTER TABLE agent_profiles ADD COLUMN notify_url TEXT')
+        .run();
   })().catch((error) => {
     notifyColumnsReady = null;
     throw error;

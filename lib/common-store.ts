@@ -20,6 +20,7 @@ import {
 } from '@/lib/signing';
 import {
   ensureNotifyTables,
+  NOTIFY_TABLES,
   notifyUrlProblem,
   queueNotifications,
   verifyNotifyUrl,
@@ -357,12 +358,21 @@ let entryLinkColumnsReady: Promise<void> | null = null;
 
 // Databases created before entry links existed lack these columns. SQLite has
 // no ADD COLUMN IF NOT EXISTS, so check once per isolate and add what is missing.
-function ensureEntryLinkColumns(db: D1Database) {
+function ensureEntryLinkColumns(db: D1Database, schema: Promise<unknown>) {
   entryLinkColumnsReady ||= (async () => {
-    const columns = await db
-      .prepare('PRAGMA table_info(entries)')
-      .all<{ name: string }>();
-    const names = new Set(columns.results.map((column) => column.name));
+    // Read in parallel with the schema batch; on a fresh database the table
+    // may not exist yet, so read again once the batch is done.
+    const read = async () =>
+      new Set(
+        (
+          await db.prepare('PRAGMA table_info(entries)').all<{ name: string }>()
+        ).results.map((column) => column.name),
+      );
+    let names = await read();
+    if (!names.size) {
+      await schema;
+      names = await read();
+    }
     const statements = [];
     if (!names.has('supersedes'))
       statements.push(
@@ -386,6 +396,8 @@ function ensureEntryLinkColumns(db: D1Database) {
       statements.push(
         db.prepare('ALTER TABLE entries ADD COLUMN signed_at INTEGER'),
       );
+    // Nothing missing (every live request): no write, no extra round trip.
+    if (!statements.length) return;
     statements.push(
       db.prepare(
         'CREATE INDEX IF NOT EXISTS idx_entries_supersedes ON entries(supersedes)',
@@ -627,16 +639,15 @@ async function sha256Hex(value: string) {
     .join('');
 }
 
-let seedsRetired: Promise<unknown> | null = null;
-
 // The schema batch is a D1 round trip; once it has run in this isolate the
 // tables exist, so later requests skip it (API reads took 1.4-9.7 s, 10-22).
 let schemaReady: Promise<unknown> | null = null;
 
 export async function ensureDatabase() {
   const db = env.DB;
-  schemaReady ||= db.batch([
-    db.prepare(`CREATE TABLE IF NOT EXISTS entries (
+  schemaReady ||= db
+    .batch([
+      db.prepare(`CREATE TABLE IF NOT EXISTS entries (
       id TEXT PRIMARY KEY,
       kind TEXT NOT NULL CHECK(kind IN ('message', 'knowledge', 'feature_request')),
       channel TEXT NOT NULL,
@@ -646,7 +657,7 @@ export async function ensureDatabase() {
       tags TEXT NOT NULL DEFAULT '[]',
       created_at INTEGER NOT NULL
     )`),
-    db.prepare(`CREATE TABLE IF NOT EXISTS agent_profiles (
+      db.prepare(`CREATE TABLE IF NOT EXISTS agent_profiles (
       id TEXT PRIMARY KEY,
       description TEXT NOT NULL,
       capabilities TEXT NOT NULL DEFAULT '[]',
@@ -654,60 +665,61 @@ export async function ensureDatabase() {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`),
-    db.prepare(
-      'CREATE INDEX IF NOT EXISTS idx_entries_created_at ON entries(created_at DESC)',
-    ),
-    db.prepare(
-      'CREATE INDEX IF NOT EXISTS idx_entries_kind_created_at ON entries(kind, created_at DESC)',
-    ),
-    db.prepare(
-      'CREATE INDEX IF NOT EXISTS idx_entries_channel_created_at ON entries(channel, created_at DESC)',
-    ),
-    db.prepare(
-      'CREATE INDEX IF NOT EXISTS idx_agent_profiles_updated_at ON agent_profiles(updated_at DESC)',
-    ),
-    // Private: hashed connection labels (lib/request-source.ts), never served.
-    db.prepare(`CREATE TABLE IF NOT EXISTS entry_sources (
+      db.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_entries_created_at ON entries(created_at DESC)',
+      ),
+      db.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_entries_kind_created_at ON entries(kind, created_at DESC)',
+      ),
+      db.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_entries_channel_created_at ON entries(channel, created_at DESC)',
+      ),
+      db.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_agent_profiles_updated_at ON agent_profiles(updated_at DESC)',
+      ),
+      // Private: hashed connection labels (lib/request-source.ts), never served.
+      db.prepare(`CREATE TABLE IF NOT EXISTS entry_sources (
       entry_id TEXT PRIMARY KEY,
       source TEXT NOT NULL,
       created_at INTEGER NOT NULL
     )`),
-    db.prepare(
-      'CREATE INDEX IF NOT EXISTS idx_entry_sources_source ON entry_sources(source, created_at DESC)',
-    ),
-    db.prepare(`CREATE TABLE IF NOT EXISTS blocked_sources (
+      db.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_entry_sources_source ON entry_sources(source, created_at DESC)',
+      ),
+      db.prepare(`CREATE TABLE IF NOT EXISTS blocked_sources (
       source TEXT PRIMARY KEY,
       reason TEXT NOT NULL,
       first_seen INTEGER NOT NULL,
       last_seen INTEGER NOT NULL,
       attempts INTEGER NOT NULL DEFAULT 1
     )`),
-    // Public counts of refused posts: rule, agent name and day only.
-    db.prepare(`CREATE TABLE IF NOT EXISTS refusals (
+      // Public counts of refused posts: rule, agent name and day only.
+      db.prepare(`CREATE TABLE IF NOT EXISTS refusals (
       day TEXT NOT NULL,
       rule TEXT NOT NULL,
       agent TEXT NOT NULL,
       count INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY (day, rule, agent)
     )`),
-  ]).catch((error) => {
-    schemaReady = null;
-    throw error;
-  });
-  await schemaReady;
-  seedsRetired ||= db
-    .prepare(
-      `DELETE FROM entries WHERE id IN (${RETIRED_SEED_IDS.map(() => '?').join(', ')})`,
-    )
-    .bind(...RETIRED_SEED_IDS)
-    .run()
+      ...NOTIFY_TABLES.map((sql) => db.prepare(sql)),
+      db
+        .prepare(
+          `DELETE FROM entries WHERE id IN (${RETIRED_SEED_IDS.map(() => '?').join(', ')})`,
+        )
+        .bind(...RETIRED_SEED_IDS),
+    ])
     .catch((error) => {
-      seedsRetired = null;
+      schemaReady = null;
       throw error;
     });
-  await seedsRetired;
-  await ensureEntryLinkColumns(db);
-  await ensureNotifyTables(db);
+  // A cold isolate used to make ~6 serial D1 round trips here (~1.1 s from US
+  // colos, D1 is near SIN; /api/health 10-22). The column checks now go out
+  // with the schema batch, so a cold start costs one round trip.
+  await Promise.all([
+    schemaReady,
+    ensureEntryLinkColumns(db, schemaReady),
+    ensureNotifyTables(db, schemaReady),
+  ]);
   return db;
 }
 
