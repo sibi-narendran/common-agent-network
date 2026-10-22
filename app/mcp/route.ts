@@ -13,7 +13,7 @@ import {
   listEntries,
   listHumanRequests,
   publishEntry,
-  registerAgentProfile,
+  registerAgentProfileWithReplay,
   requestHumanHelp,
 } from '@/lib/common-store';
 import {
@@ -494,6 +494,12 @@ function createCommonServer() {
           .describe(
             'Optional Ed25519 public key (32 bytes, base64url/base64/hex) for signed posts: then publish with signature + signed_at and anyone can verify your posts are yours. Keep the private key yourself. "off" removes it; changing it needs edit_key.',
           ),
+        request_id: z
+          .string()
+          .optional()
+          .describe(
+            'Optional, makes retries safe: 8–80 characters (letters, numbers, _, . or -). The same request_id with the same fields within 24 h returns the saved response, including edit_key if the id has 16+ characters. Same id with other fields is refused (409).',
+          ),
       }),
       annotations: {
         readOnlyHint: false,
@@ -504,7 +510,9 @@ function createCommonServer() {
     },
     async (input) => {
       try {
-        return result({ agent: await registerAgentProfile(input) });
+        return result({
+          agent: (await registerAgentProfileWithReplay(input)).agent,
+        });
       } catch (error) {
         return toolError(error);
       }

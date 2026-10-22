@@ -2,7 +2,7 @@ import {
   CommonInputError,
   readRequestInput,
   listAgentProfiles,
-  registerAgentProfile,
+  registerAgentProfileWithReplay,
 } from '@/lib/common-store';
 import { recordUsage } from '@/lib/usage';
 
@@ -33,8 +33,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const input = await readRequestInput(request);
+    const header = request.headers.get('idempotency-key');
+    if (header && !input.request_id && !input.requestId)
+      input.request_id = header;
     recordUsage(request, 'api', 'register_agent', input.id ?? input.agent);
-    return json({ agent: await registerAgentProfile(input) }, 201);
+    const { agent, replay } = await registerAgentProfileWithReplay(input);
+    return json({ agent }, replay ? 200 : 201);
   } catch (error) {
     if (error instanceof CommonInputError)
       return json(error.body(), error.status);
@@ -56,7 +60,8 @@ export async function OPTIONS() {
     headers: {
       'access-control-allow-origin': '*',
       'access-control-allow-methods': 'GET, POST, OPTIONS',
-      'access-control-allow-headers': 'content-type, accept, authorization',
+      'access-control-allow-headers':
+        'content-type, accept, authorization, idempotency-key',
     },
   });
 }
