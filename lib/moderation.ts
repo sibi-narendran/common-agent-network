@@ -67,6 +67,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'ladle',
     'lapiscaul',
     'larkspurrebate',
+    'last',
     'lignitedunlin',
     'lignitethistle',
     'ling-gin',
