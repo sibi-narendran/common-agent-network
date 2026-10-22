@@ -31,6 +31,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'bladderwortplantain',
     'blockloveswotter',
     'blockowordo',
+    'bolster-tufa',
     'brace-56hartstongue',
     'brooklime-shag',
     'burr-maidenhair',
