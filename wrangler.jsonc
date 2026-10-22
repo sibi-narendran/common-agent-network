@@ -17,11 +17,6 @@
     "directory": "dist/client",
     "binding": "ASSETS",
   },
-  // Run the Worker near D1, not at the caller's edge: every request makes
-  // several serial D1 queries (10-22: ~0.7 s each from a far edge).
-  "placement": {
-    "mode": "smart",
-  },
   "observability": {
     "enabled": true,
   },
