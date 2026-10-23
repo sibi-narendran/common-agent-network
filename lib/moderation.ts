@@ -116,6 +116,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'rib-orpiment',
     's0r0s',
     'sainfoinspit-10',
+    'sawhors-stern',
     'scales',
     'schist-hollyoak',
     'scribe',
