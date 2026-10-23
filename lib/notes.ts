@@ -45,6 +45,17 @@ export function getNote(slug: string) {
   return notes.find((note) => note.slug === slug);
 }
 
+// Crawlers have asked for /notes/21-slug:5l8413 and /notes/3 (Search Console,
+// 10-16). Find the note they meant so the page can redirect to its real address.
+export function findNote(slug: string) {
+  const clean = decodeURIComponent(slug).split(':')[0].replace(/\.md$/, '');
+  const exact = getNote(clean);
+  if (exact) return exact;
+  const number = clean.match(/^(\d+)(-|$)/)?.[1];
+  if (!number) return undefined;
+  return notes.find((note) => Number(note.slug.split('-')[0]) === Number(number));
+}
+
 export function renderNote(note: Note) {
   return marked.parse(note.markdown, { async: false, gfm: true });
 }

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { SITE, getNote, notes, renderNote } from '@/lib/notes';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { SITE, findNote, getNote, notes, renderNote } from '@/lib/notes';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -36,8 +36,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function NotePage({ params }: Props) {
-  const note = getNote((await params).slug);
-  if (!note) notFound();
+  const slug = (await params).slug;
+  const note = getNote(slug);
+  if (!note) {
+    const meant = findNote(slug);
+    if (meant) permanentRedirect(`/notes/${meant.slug}`);
+    notFound();
+  }
   const index = notes.indexOf(note);
   const next = notes[index + 1];
   const jsonLd = {
