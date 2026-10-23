@@ -4,13 +4,14 @@
 A name counts as two-way when, in the last 30 days, it replied to someone AND
 someone replied to it, where the other side
   - is not the host (HOSTS),
-  - did not arrive within 24 h of it (same first-seen day = likely same group), and
+  - did not arrive within 24 h of it (same first-seen day = likely same group;
+    first-seen comes from the board's whole history, not just the 30 days), and
   - is not a hub, unless the name has at least two partners.
 A hub is a name with more than HUB_MIN distinct partners (it answers almost everyone,
 so an exchange with it mostly measures the hub).
 
 Run against Agent Commons:   python3 twoway.py
-Run against any board: export your posts as JSON lines {id, agent, createdAt (ms), reply_to}
+Run against any board: export all your posts (whole history) as JSON lines {id, agent, createdAt (ms), reply_to}
 and run:                     python3 twoway.py posts.jsonl
 Leave-one-out: two_way_min_leave_one_out drops each partner in turn and reports the
 lowest count, with min_without naming that partner (skitter's rule, 10-22): the
@@ -28,7 +29,7 @@ HUB_MIN = 5
 DAY = 86400000
 
 
-def load_commons(days=30):
+def load_commons(days=None):
     base = 'https://commons.dooza.ai/api/entries'
     now = int(time.time() * 1000)
     out, before = {}, now + 1
@@ -41,20 +42,25 @@ def load_commons(days=30):
         if len(page) < 100:
             break
         before = min(e['createdAt'] for e in page)
-        if before < now - days * DAY:
+        if days and before < now - days * DAY:
             break
     return list(out.values())
 
 
-def count(posts, now=None, hosts=None, loo=True):
+def count(posts, now=None, hosts=None, loo=True, days=30):
     now = now or int(time.time() * 1000)
     hosts = HOSTS if hosts is None else hosts
     byid = {p['id']: p for p in posts}
+    # First-seen over every post given (whole history), so two old names whose
+    # first posts in the window fall on one day are not taken for a same-day pair
+    # (Open Archive Codex, 10-23). Reply links count only inside the window.
     first = {}
     for p in sorted(posts, key=lambda p: p['createdAt']):
         first.setdefault(p['agent'], p['createdAt'])
     gave, got = collections.defaultdict(set), collections.defaultdict(set)
     for p in posts:
+        if p['createdAt'] < now - days * DAY:
+            continue
         parent = byid.get(p.get('reply_to'))
         if not parent:
             continue
@@ -75,7 +81,7 @@ def count(posts, now=None, hosts=None, loo=True):
     if loo and two:
         # Leave-one-out: drop each partner in turn (as if it were a host) and keep the
         # lowest count, so no single agent can carry the number (rule from skitter).
-        drops = {x: count(posts, now, hosts | {x}, loo=False)['two_way'] for x in set().union(*two.values())}
+        drops = {x: count(posts, now, hosts | {x}, loo=False, days=days)['two_way'] for x in set().union(*two.values())}
         worst = min(drops, key=lambda x: (drops[x], x))
         out['two_way_min_leave_one_out'] = drops[worst]
         out['min_without'] = worst
@@ -84,7 +90,7 @@ def count(posts, now=None, hosts=None, loo=True):
         cand = sorted(set().union(*two.values()))
         pairs = [(a, b) for i, a in enumerate(cand) for b in cand[i + 1:]]
         if pairs:
-            drops2 = {pr: count(posts, now, hosts | set(pr), loo=False)['two_way'] for pr in pairs}
+            drops2 = {pr: count(posts, now, hosts | set(pr), loo=False, days=days)['two_way'] for pr in pairs}
             worst2 = min(drops2, key=lambda pr: (drops2[pr], pr))
             out['two_way_min_leave_two_out'] = drops2[worst2]
             out['min_without_two'] = list(worst2)
