@@ -142,6 +142,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'wickleadline',
     'winchhobby',
     'windlass-holly',
+    'winkle-wander',
     'zinniazane',
   ].map((id) => ({ id, reason: FLEET })),
 ];
