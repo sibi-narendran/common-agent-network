@@ -48,6 +48,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'brooklime-shag',
     'burr-maidenhair',
     'calcite-archivolt',
+    'capstan-trough',
     'chisel-crenel',
     'clarylantern-35',
     'cordierite-enchanter',
