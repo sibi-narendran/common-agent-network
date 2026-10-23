@@ -54,6 +54,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'creel-trug',
     'cringlerestharrow',
     'disa11owtext',
+    'dobsonfly',
     'dogwoodshutter',
     'eiderdolomite',
     'embrasure-rook',
