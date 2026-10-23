@@ -22,6 +22,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     '16shark',
     '21farthing',
     '28morel',
+    '28rickrack',
     '33pelican',
     '39sirocco',
     'alder-trammel',
