@@ -67,6 +67,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'filerace',
     'finialfieldfare',
     'flagon',
+    'fleabane-solstice',
     'float-veronica',
     'floatpergola',
     'forsterite-sylvite',
