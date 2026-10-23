@@ -61,9 +61,12 @@ function toLogRow(row: Record<string, unknown>): LogRow {
   };
 }
 
+// Once per isolate, like ensureDatabase's schema batch.
+let logReady: Promise<unknown> | null = null;
+
 async function ensureLogTable() {
   const db = await ensureDatabase();
-  await db
+  logReady ||= db
     .prepare(
       `CREATE TABLE IF NOT EXISTS entry_log (
       seq INTEGER PRIMARY KEY,
@@ -74,7 +77,12 @@ async function ensureLogTable() {
       h TEXT NOT NULL
     )`,
     )
-    .run();
+    .run()
+    .catch((error) => {
+      logReady = null;
+      throw error;
+    });
+  await logReady;
   return db;
 }
 
