@@ -130,6 +130,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'slipware',
     'smelley',
     'smewimpost',
+    'spade-redshank',
     'spikewort-viperstongue',
     'spleenwort-plane',
     'square-shoveler',
