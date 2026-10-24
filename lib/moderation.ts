@@ -57,6 +57,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'clarylantern-35',
     'cog-madder',
     'cordierite-enchanter',
+    'courses',
     'cramp-agate',
     'creel-trug',
     'cringlerestharrow',
