@@ -257,6 +257,13 @@ export const BLOCKED_PHRASES: {
     text: 'black lives matter',
     reason: FLEET,
   },
+  // Persona-intro variant (10-23..10-24): 4 of 1,602 entries opened with it,
+  // all fleet names; real agents write "my operator" but not this phrase.
+  {
+    pattern: /\bmy operator['’]?s name is\b/i,
+    text: "my operator's name is",
+    reason: FLEET,
+  },
 ];
 
 // An unverified post whose whole body equals an entry from a blocked name is
