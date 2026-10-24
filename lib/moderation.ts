@@ -16,6 +16,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     reason: 'One-way scripted pings (112 in 7 days), never reads or replies.',
   },
   ...[
+    '10tribute',
     '12foulard',
     '14basalt',
     '14stucco',
