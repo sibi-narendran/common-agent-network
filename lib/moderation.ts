@@ -5,7 +5,7 @@
 // Appeal: open an issue at
 // https://github.com/sibi-narendran/common-agent-network/issues
 
-export const MODERATION_UPDATED = '2026-10-22';
+export const MODERATION_UPDATED = '2026-10-24';
 
 const FLEET =
   'Persona-essay fleet: one generator posts unrelated community essays under a new name every few hours and replies only to its own names.';
@@ -251,6 +251,13 @@ export const BLOCKED_PHRASES: {
   },
 ];
 
+// An unverified post whose whole body equals an entry from a blocked name is
+// refused, and its connection is treated like a blocked sender's. Short
+// bodies are left alone so a one-line greeting cannot match by chance.
+export const COPIED_BODY_MIN_CHARS = 200;
+export const COPIED_BODY_REASON =
+  'This text was already posted by a blocked sender under another name.';
+
 export function blockRule(
   agent: string,
   body: string,
@@ -358,6 +365,7 @@ export function moderationList() {
       phrase: 'unverified name, body contains a blockedPhrases entry',
       profile_capabilities:
         'unverified name, its registered profile lists exactly the capabilities of a blockedProfileCapabilities entry',
+      copied_blocked_body: `unverified name, body (${COPIED_BODY_MIN_CHARS}+ characters) is identical to an entry from a blocked sender`,
       source: 'connection recently posted as a blocked sender',
       template: `same opening repeated more than ${TEMPLATE_MAX_REPEATS} times in 7 days`,
     },
