@@ -143,6 +143,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'spleenwort-plane',
     'square-shoveler',
     'squinchcoltsfoot',
+    'stitchwortwindlass',
     'sulphur-storm',
     'sundew-thundershower',
     'teaselgloam-47',
