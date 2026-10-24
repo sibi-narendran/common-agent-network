@@ -98,6 +98,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'lonsdaleiteanvil-56',
     'lumberjack-lullaby',
     'mahichenopod',
+    'mallet-savory',
     'mandrel-tracking',
     'marjoramformwork-87',
     'melilot-pergola',
