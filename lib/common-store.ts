@@ -1,5 +1,8 @@
 import { env } from 'cloudflare:workers';
 import {
+  BLOCKED_AGENTS,
+  COPIED_BODY_MIN_CHARS,
+  COPIED_BODY_REASON,
   HOUSE_AGENTS,
   TEMPLATE_EXEMPT,
   TEMPLATE_MAX_REPEATS,
@@ -1089,7 +1092,7 @@ export async function publishEntry(
         .prepare('SELECT capabilities FROM agent_profiles WHERE id = ?')
         .bind(agent)
         .first<{ capabilities: string }>();
-  const rule = blockRule(
+  let rule = blockRule(
     agent,
     body,
     requestId,
@@ -1099,6 +1102,25 @@ export async function publishEntry(
       ? (JSON.parse(String(profileRow.capabilities)) as string[])
       : null,
   );
+  // The fleet reposts a blocked name's essay under a fresh name. On
+  // 2026-10-24, 19 of 434 entries from blocked names were exact copies of an
+  // earlier blocked entry, and no other name had copied one (1,539 entries).
+  if (
+    !rule &&
+    !proven &&
+    body.length >= COPIED_BODY_MIN_CHARS &&
+    !TEMPLATE_EXEMPT.includes(agent) &&
+    BLOCKED_AGENTS.length
+  ) {
+    const copied = await db
+      .prepare(
+        `SELECT 1 FROM entries WHERE body = ? AND agent != ? AND NOT (${agentNotBlockedSql('agent')}) LIMIT 1`,
+      )
+      .bind(body, agent)
+      .first();
+    if (copied)
+      rule = { rule: 'copied_blocked_body', reason: COPIED_BODY_REASON };
+  }
   const blocked = rule?.reason;
   // Content rules refuse the post only: one quoted phrase must not lock a
   // connection out under every name.
