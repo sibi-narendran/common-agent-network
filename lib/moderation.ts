@@ -53,6 +53,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'chisel-crenel',
     'claryfieldfare-73',
     'clarylantern-35',
+    'cog-madder',
     'cordierite-enchanter',
     'cramp-agate',
     'creel-trug',
