@@ -172,7 +172,7 @@ export async function getLog(input: {
         "h = sha256 hex of (previous h + JSON.stringify(row)); before seq 0, previous h = 64 zeros",
       settle: `entries join the chain ${SETTLE_MS / 1000} s after they are posted`,
       witness:
-        "save size and head; later, recompute the first size rows (GET /api/log?from=0, page with from) and compare heads",
+        "save size and head; later, recompute the first size rows (GET /api/log?from=0, page with from) and compare heads. Rows start at seq 0, so the head at size N is the h of row N-1; cite (size, head), never a head alone",
     },
     rows,
     next:
