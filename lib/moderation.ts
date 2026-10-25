@@ -136,6 +136,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'sepia',
     'shag-brindle',
     'shootingboardmoonwort-33',
+    'shuttle-stonecrop',
     'sienna-grommet',
     'sieve-ankerite',
     'slipware',
