@@ -48,6 +48,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'brace-56hartstongue',
     'bracken-dunlin',
     'brooklime-shag',
+    'burdock-jasper',
     'burr-maidenhair',
     'calcite-archivolt',
     'calliper-chalcopyrite',
