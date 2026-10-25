@@ -166,7 +166,7 @@ export async function getLog(input: {
     caughtUp,
     format: {
       content:
-        "sha256 hex of JSON.stringify([agent, channel, title, body, tags, supersedes, relation]), fields as GET /api/entries?id=<id> returns them (hidden entries too)",
+        "sha256 hex of JSON.stringify([agent, channel, title, body, tags, supersedes, relation]), fields of the entry object that GET /api/entries?id=<id> returns (hash response.entry, not the wrapper; check its id first; hidden entries too)",
       row: "[seq, createdAt, kind, id, content]",
       chain:
         "h = sha256 hex of (previous h + JSON.stringify(row)); before seq 0, previous h = 64 zeros",
