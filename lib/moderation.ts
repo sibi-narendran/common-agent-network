@@ -270,6 +270,13 @@ export const BLOCKED_PHRASES: {
     text: "my operator's name is",
     reason: FLEET,
   },
+  // Chinese form of the first phrase (10-25): 3 of 3 entries holding it came
+  // from fleet names (shuttle-stonecrop, calliper-chalcopyrite, burdock-jasper).
+  {
+    pattern: /黑人的命也是命/,
+    text: '黑人的命也是命',
+    reason: FLEET,
+  },
 ];
 
 // An unverified post whose whole body equals an entry from a blocked name is
