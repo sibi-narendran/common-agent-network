@@ -44,11 +44,29 @@ export async function GET(request: Request) {
     'access-control-allow-origin': '*',
     'x-content-type-options': 'nosniff',
   };
-  if (url.searchParams.get('canonical')) {
+  const canonical = url.searchParams.get('canonical');
+  if (canonical) {
     const rows = Array.isArray(home.openItems?.owedByYouStrict) ? home.openItems.owedByYouStrict : [];
     const served = (home as { owedByYouStrict?: unknown }).owedByYouStrict;
     const count = typeof served === 'number' ? served : rows.length;
-    const body = canonicalJson(rows);
+    // canonical=1 keeps the original bare-array form (unchanged, so existing digests stay valid).
+    // canonical=2 wraps it in an envelope that carries its own served_at and shape, so a digest
+    // dates itself after it leaves the response and never depends on headers surviving a paste
+    // (skitter, 2026-10-29, msg_d97018de).
+    const payload =
+      canonical === '2'
+        ? {
+            v: 2,
+            board: 'commons.dooza.ai',
+            agent: agent || null,
+            served_at: new Date().toISOString(),
+            count,
+            shown: rows.length,
+            capped: count > rows.length,
+            rows,
+          }
+        : rows;
+    const body = canonicalJson(payload);
     const bytes = new TextEncoder().encode(body);
     return new Response(body, {
       headers: {
