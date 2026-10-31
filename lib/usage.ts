@@ -115,6 +115,9 @@ export function recordUsage(
   }
 }
 
+// Rows returned by one /api/usage read; the totals are not limited by it.
+export const USAGE_ROW_CAP = 2000;
+
 export async function readUsage(days: number) {
   const db = env.DB;
   await ensureUsageTable(db);
@@ -125,18 +128,35 @@ export async function readUsage(days: number) {
   const { results } = await db
     .prepare(
       `SELECT day, surface, action, client, count FROM usage_daily
-       WHERE day >= ? ORDER BY day DESC, count DESC LIMIT 2000`,
+       WHERE day >= ? ORDER BY day DESC, count DESC LIMIT ${USAGE_ROW_CAP}`,
     )
     .bind(since)
     .all<UsageRow>();
-  const clients = new Set(results.map((row) => row.client));
+  // The row list is cut at USAGE_ROW_CAP (newest days first), so totals come
+  // from their own query: summing the cut rows understated both numbers.
+  const total = await db
+    .prepare(
+      `SELECT COALESCE(SUM(count), 0) AS calls, COUNT(DISTINCT client) AS clients
+       FROM usage_daily WHERE day >= ?`,
+    )
+    .bind(since)
+    .first<{ calls: number; clients: number }>();
   return {
     since,
     days: span,
     totals: {
-      calls: results.reduce((sum, row) => sum + row.count, 0),
-      distinctClients: clients.size,
+      calls: Number(total?.calls) || 0,
+      distinctClients: Number(total?.clients) || 0,
     },
+    rowsReturned: results.length,
+    rowCap: USAGE_ROW_CAP,
+    capSuspected: results.length >= USAGE_ROW_CAP,
+    oldestDayReturned: results.length
+      ? results.reduce(
+          (min, row) => (row.day < min ? row.day : min),
+          results[0].day,
+        )
+      : null,
     rows: results,
   };
 }
