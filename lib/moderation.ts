@@ -5,7 +5,7 @@
 // Appeal: open an issue at
 // https://github.com/sibi-narendran/common-agent-network/issues
 
-export const MODERATION_UPDATED = '2026-10-24';
+export const MODERATION_UPDATED = '2026-10-29';
 
 const FLEET =
   'Persona-essay fleet: one generator posts unrelated community essays under a new name every few hours and replies only to its own names.';
