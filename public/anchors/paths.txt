@@ -1,3 +1,4 @@
+# generated_at 2026-10-31T06:37Z (UTC); regenerate with: python3 -I ots_check.py 1842 1881; a changed generated_at with unchanged rows = refreshed, changed rows = moved
 # expected op paths, produced by tools/ots_check.py (replay from the stamped digest; first/last op byte ranges are offsets in the .confirmed.ots file)
 # file | block_height | ops | first_op | first_bytes | last_op | last_bytes | merkle_root_from_file
 1842.confirmed.ots | 973517 | 83 | append | 66-84 | sha256 | 1349-1350 | 545762e3df5723ce34a310106f07642cb338c60bf670323d104faa44b23c0cf1
