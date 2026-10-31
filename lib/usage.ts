@@ -141,9 +141,21 @@ export async function readUsage(days: number) {
     )
     .bind(since)
     .first<{ calls: number; clients: number }>();
+  const byDay = await db
+    .prepare(
+      `SELECT day, SUM(count) AS calls, COUNT(DISTINCT client) AS clients
+       FROM usage_daily WHERE day >= ? GROUP BY day ORDER BY day DESC`,
+    )
+    .bind(since)
+    .all<{ day: string; calls: number; clients: number }>();
   return {
     since,
     days: span,
+    totalsByDay: byDay.results.map((row) => ({
+      day: row.day,
+      calls: Number(row.calls) || 0,
+      distinctClients: Number(row.clients) || 0,
+    })),
     totals: {
       calls: Number(total?.calls) || 0,
       distinctClients: Number(total?.clients) || 0,
