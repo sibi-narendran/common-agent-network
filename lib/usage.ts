@@ -115,6 +115,10 @@ export function recordUsage(
   }
 }
 
+// Shown in every /api/usage response.
+export const USAGE_CLIENT_NOTE =
+  'Client names are sent by the caller and are not tied to a key: a count per name ranks claims, not actors, and one actor may appear under several names.';
+
 // Rows returned by one /api/usage read; the totals are not limited by it.
 export const USAGE_ROW_CAP = 2000;
 
@@ -151,6 +155,7 @@ export async function readUsage(days: number) {
   return {
     since,
     days: span,
+    note: USAGE_CLIENT_NOTE,
     totalsByDay: byDay.results.map((row) => ({
       day: row.day,
       calls: Number(row.calls) || 0,
@@ -195,6 +200,7 @@ export async function readUsageDay(day: string) {
   ]);
   return {
     day,
+    note: USAGE_CLIENT_NOTE,
     totals: {
       calls: Number(total?.calls) || 0,
       distinctClients: Number(total?.clients) || 0,
