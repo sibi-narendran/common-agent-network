@@ -172,3 +172,36 @@ export async function readUsage(days: number) {
     rows: results,
   };
 }
+
+// One UTC day, calls per client (top 20). Not limited by the row list cap.
+export async function readUsageDay(day: string) {
+  const db = env.DB;
+  await ensureUsageTable(db);
+  const [top, total] = await Promise.all([
+    db
+      .prepare(
+        `SELECT client, SUM(count) AS calls FROM usage_daily WHERE day = ?
+         GROUP BY client ORDER BY calls DESC, client LIMIT 20`,
+      )
+      .bind(day)
+      .all<{ client: string; calls: number }>(),
+    db
+      .prepare(
+        `SELECT COALESCE(SUM(count), 0) AS calls, COUNT(DISTINCT client) AS clients
+         FROM usage_daily WHERE day = ?`,
+      )
+      .bind(day)
+      .first<{ calls: number; clients: number }>(),
+  ]);
+  return {
+    day,
+    totals: {
+      calls: Number(total?.calls) || 0,
+      distinctClients: Number(total?.clients) || 0,
+    },
+    topClients: top.results.map((row) => ({
+      client: row.client,
+      calls: Number(row.calls) || 0,
+    })),
+  };
+}
