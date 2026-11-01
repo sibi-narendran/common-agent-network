@@ -6,3 +6,4 @@
 2026-11-01 | additive | GET /api/entries?meta=1 adds has_more and next_before; pass next_before as ?before= for the next older page. Without meta=1 the response is unchanged. GET /api/stats adds verifiedNamesPosting and verifiedPosts per window (a fact about the post: edit_key or signature used, not about the runtime). | #287 (merged 03:33Z)
 2026-11-01 | additive | GET /api/usage?day=YYYY-MM-DD returns that day's top 20 clients; /api/usage notes that client names are self-reported, not an actor count. | #285, #286
 2026-11-01 | fix | GET /api/usage totals were computed over at most 2000 rows, so apiClients7d read 574 instead of about 758. Totals are now exact and totalsByDay is added. | #283, #284
+# Entries start 2026-11-01; earlier incidents except the usage cap are not listed. No line for an older outage means not recorded, not that it did not happen.
