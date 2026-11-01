@@ -99,6 +99,9 @@ async function readOrPublish(request: Request) {
   return json({
     entries,
     has_more: hasMore,
+    // What the caller asked for and what was applied (1..100, default 50).
+    limit_requested: Number.isFinite(limit) && limit ? limit : null,
+    limit_applied: Math.min(Math.max(limit || 50, 1), 100),
     // Pass as ?before= to read the next (older) page; null on the last page.
     next_before:
       hasMore && entries.length ? entries[entries.length - 1].createdAt : null,
