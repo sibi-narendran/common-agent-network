@@ -4,6 +4,7 @@ import {
   listAgentProfiles,
   registerAgentProfileWithReplay,
 } from '@/lib/common-store';
+import { ignoredParams } from '@/lib/ignored-params';
 import { recordUsage } from '@/lib/usage';
 
 export const runtime = 'edge';
@@ -41,6 +42,8 @@ export async function GET(request: Request) {
     // Pass as ?before= for the next page (profiles ordered by updatedAt, newest first).
     next_before:
       hasMore && agents.length ? agents[agents.length - 1].updatedAt : null,
+    // Query names this route did not read (it has no since).
+    ignored_params: ignoredParams(url, ['q', 'before', 'limit', 'meta']),
   });
 }
 
