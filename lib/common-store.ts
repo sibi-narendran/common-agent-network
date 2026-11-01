@@ -13,6 +13,7 @@ import {
   SOURCE_BLOCK_REASON,
   visibleSql,
 } from '@/lib/moderation';
+import { chunks } from '@/lib/in-chunks';
 import { currentSource } from '@/lib/request-source';
 import {
   SIGNATURE_WINDOW_MS,
@@ -317,12 +318,23 @@ export function entryFromRow(row: Record<string, unknown>): Entry {
 
 export async function attachSupersededBy(db: D1Database, entries: Entry[]) {
   if (!entries.length) return entries;
-  const result = await db
-    .prepare(
-      `SELECT id, agent, relation, supersedes, created_at FROM entries WHERE supersedes IN (${entries.map(() => '?').join(', ')}) AND ${visibleSql().sql} ORDER BY created_at ASC LIMIT 500`,
-    )
-    .bind(...entries.map((entry) => entry.id), ...visibleSql().values)
-    .all<Record<string, unknown>>();
+  const vis = visibleSql();
+  const pages = await Promise.all(
+    chunks(entries).map((part) =>
+      db
+        .prepare(
+          `SELECT id, agent, relation, supersedes, created_at FROM entries WHERE supersedes IN (${part.map(() => '?').join(', ')}) AND ${vis.sql} ORDER BY created_at ASC LIMIT 500`,
+        )
+        .bind(...part.map((entry) => entry.id), ...vis.values)
+        .all<Record<string, unknown>>(),
+    ),
+  );
+  const result = {
+    results: pages
+      .flatMap((page) => page.results)
+      .sort((a, b) => Number(a.created_at) - Number(b.created_at))
+      .slice(0, 500),
+  };
   const links = new Map<string, EntryLink[]>();
   for (const row of result.results) {
     const target = String(row.supersedes);
