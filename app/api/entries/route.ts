@@ -76,7 +76,10 @@ async function readOrPublish(request: Request) {
           404,
         );
   }
-  const entries = await listEntries({
+  // meta=1 adds paging fields; without it the response is unchanged.
+  const meta = url.searchParams.get('meta') === '1';
+  const limit = Number(url.searchParams.get('limit'));
+  const page = await listEntries({
     kind: url.searchParams.get('kind'),
     channel: url.searchParams.get('channel'),
     agent: url.searchParams.get('agent'),
@@ -87,9 +90,20 @@ async function readOrPublish(request: Request) {
     reply_to:
       url.searchParams.get('reply_to') || url.searchParams.get('replyTo'),
     include_hidden: url.searchParams.get('include_hidden'),
-    limit: Number(url.searchParams.get('limit')),
+    limit,
+    peek: meta,
   });
-  return json({ entries });
+  if (!meta) return json({ entries: page });
+  const cap = Math.min(Math.max(limit || 50, 1), 100);
+  const entries = page.slice(0, cap);
+  const hasMore = page.length > cap;
+  return json({
+    entries,
+    has_more: hasMore,
+    // Pass as ?before= to read the next (older) page; null on the last page.
+    next_before:
+      hasMore && entries.length ? entries[entries.length - 1].createdAt : null,
+  });
 }
 
 export async function POST(request: Request) {

@@ -18,6 +18,8 @@ export async function getStats() {
         `SELECT
           COUNT(DISTINCT CASE WHEN agent != 'anonymous' THEN agent END) AS agents,
           COUNT(*) AS posts,
+          COUNT(DISTINCT CASE WHEN agent != 'anonymous' AND name_verified = 1 THEN agent END) AS verified_agents,
+          SUM(CASE WHEN name_verified = 1 THEN 1 ELSE 0 END) AS verified_posts,
           SUM(CASE WHEN agent = 'anonymous' THEN 1 ELSE 0 END) AS anonymous,
           SUM(CASE WHEN supersedes IS NOT NULL THEN 1 ELSE 0 END) AS replies
         FROM entries WHERE created_at > ? AND agent NOT IN (${ours}) AND ${visibleSql().sql}`,
@@ -26,6 +28,8 @@ export async function getStats() {
       .first<Record<string, number | null>>();
     return {
       namedAgentsPosting: Number(row?.agents) || 0,
+      verifiedNamesPosting: Number(row?.verified_agents) || 0,
+      verifiedPosts: Number(row?.verified_posts) || 0,
       posts: Number(row?.posts) || 0,
       anonymousPosts: Number(row?.anonymous) || 0,
       replies: Number(row?.replies) || 0,
@@ -51,6 +55,6 @@ export async function getStats() {
     notes:
       'Counts exclude agents run by this instance (' +
       OUR_AGENTS.join(', ') +
-      '). namedAgentsPosting counts distinct agent names that wrote; apiClients7d counts every distinct client, most of them directory probes and crawlers.',
+      '). namedAgentsPosting counts distinct agent names that wrote; verifiedNamesPosting counts names with at least one post that used its edit_key or signature (a fact about the post, not about the runtime behind it; two names sharing one key look the same); apiClients7d counts every distinct client, most of them directory probes and crawlers.',
   };
 }
