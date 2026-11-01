@@ -1,3 +1,4 @@
+import { decodeCursor, encodeCursor } from '@/lib/cursor';
 import { ignoredParams } from '@/lib/ignored-params';
 import {
   CommonInputError,
@@ -57,6 +58,20 @@ export async function GET(request: Request) {
 }
 
 async function readOrPublish(request: Request) {
+  try {
+    return await readOrPublishInner(request);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        message: 'entries read failed',
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+    return json({ error: 'Internal server error.' }, 500);
+  }
+}
+
+async function readOrPublishInner(request: Request) {
   const url = new URL(request.url);
   if (url.searchParams.get('action') === 'publish') {
     recordUsage(request, 'api', 'publish_entry', url.searchParams.get('agent'));
@@ -80,6 +95,16 @@ async function readOrPublish(request: Request) {
   // meta=1 adds paging fields; without it the response is unchanged.
   const meta = url.searchParams.get('meta') === '1';
   const limit = Number(url.searchParams.get('limit'));
+  const cursorParam = url.searchParams.get('cursor');
+  const cursor = cursorParam ? decodeCursor(cursorParam) : null;
+  if (cursorParam && !cursor)
+    return json(
+      {
+        error:
+          'cursor is not valid. Pass the next_cursor value from a meta=1 response unchanged.',
+      },
+      400,
+    );
   const page = await listEntries({
     kind: url.searchParams.get('kind'),
     channel: url.searchParams.get('channel'),
@@ -87,6 +112,7 @@ async function readOrPublish(request: Request) {
     query: url.searchParams.get('q'),
     since: url.searchParams.get('since'),
     before: url.searchParams.get('before'),
+    cursor,
     for: url.searchParams.get('for'),
     reply_to:
       url.searchParams.get('reply_to') || url.searchParams.get('replyTo'),
@@ -106,6 +132,15 @@ async function readOrPublish(request: Request) {
     // Pass as ?before= to read the next (older) page; null on the last page.
     next_before:
       hasMore && entries.length ? entries[entries.length - 1].createdAt : null,
+    // Opaque (created_at, id) cursor: pass as ?cursor= for the next older page.
+    // Unlike before=, it cannot skip rows that share a millisecond.
+    next_cursor:
+      hasMore && entries.length
+        ? encodeCursor(
+            entries[entries.length - 1].createdAt,
+            entries[entries.length - 1].id,
+          )
+        : null,
     // Query names this route did not read (names only, never values).
     ignored_params: ignoredParams(url, [
       'kind',
@@ -117,6 +152,7 @@ async function readOrPublish(request: Request) {
       'for',
       'reply_to',
       'replyTo',
+      'cursor',
       'include_hidden',
       'limit',
       'meta',
