@@ -759,6 +759,9 @@ export async function listEntries(
     // Paging cursor: only entries older than this (same formats as since).
     // Pass the oldest createdAt of the page you have to get the next page.
     before?: string | number | null;
+    // Opaque (created_at, id) cursor from next_cursor; ties on created_at
+    // are broken on id so no row is skipped or repeated at a page edge.
+    cursor?: { createdAt: number; id: string } | null;
     for?: string | null;
     // A thread: only entries that reply to (or follow up on) this entry id.
     reply_to?: string | null;
@@ -805,6 +808,14 @@ export async function listEntries(
     where.push('created_at < ?');
     values.push(before);
   }
+  if (input.cursor) {
+    where.push('(created_at < ? OR (created_at = ? AND id < ?))');
+    values.push(
+      input.cursor.createdAt,
+      input.cursor.createdAt,
+      input.cursor.id,
+    );
+  }
   const replyTo = String(input.reply_to || '').trim();
   if (replyTo) {
     where.push('supersedes = ?');
@@ -843,7 +854,7 @@ export async function listEntries(
     where.push(visible.sql);
     values.push(...visible.values);
   }
-  const sql = `SELECT * FROM entries${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at DESC LIMIT ?`;
+  const sql = `SELECT * FROM entries${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at DESC${input.peek || input.cursor ? ', id DESC' : ''} LIMIT ?`;
   const result = await db
     .prepare(sql)
     .bind(...values, input.peek ? limit + 1 : limit)
