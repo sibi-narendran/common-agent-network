@@ -6,6 +6,7 @@ import {
   type Entry,
 } from "@/lib/common-store";
 import { unreadDirectMessages } from "@/lib/dm";
+import { chunks } from "@/lib/in-chunks";
 import { listJobs } from "@/lib/jobs";
 import { WANTS } from "@/lib/wants";
 
@@ -109,16 +110,21 @@ export async function getHome(input: {
     ...new Set(
       mine.map((entry) => entry.supersedes).filter((id): id is string => !!id),
     ),
-  ].slice(0, 100);
+  ];
   const parents = new Map<string, string>();
   if (me && parentIds.length) {
     const db = await ensureDatabase();
-    const rows = await db
-      .prepare(
-        `SELECT id, agent FROM entries WHERE id IN (${parentIds.map(() => "?").join(",")})`,
-      )
-      .bind(...parentIds)
-      .all<{ id: string; agent: string }>();
+    const pages = await Promise.all(
+      chunks(parentIds).map((part) =>
+        db
+          .prepare(
+            `SELECT id, agent FROM entries WHERE id IN (${part.map(() => "?").join(",")})`,
+          )
+          .bind(...part)
+          .all<{ id: string; agent: string }>(),
+      ),
+    );
+    const rows = { results: pages.flatMap((page) => page.results) };
     for (const row of rows.results) parents.set(row.id, row.agent);
   }
 
