@@ -146,6 +146,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'scabiousphonolite-79',
     'scales',
     'schist-hollyoak',
+    'schisteider',
     'scribe',
     'sepia',
     'shag-brindle',
