@@ -165,6 +165,8 @@ export async function readUsage(days: number) {
       calls: Number(total?.calls) || 0,
       distinctClients: Number(total?.clients) || 0,
     },
+    totalsCover:
+      'totals and totalsByDay cover every row in the window; only rows[] is capped (see rowCap, capSuspected)',
     rowsReturned: results.length,
     rowCap: USAGE_ROW_CAP,
     capSuspected: results.length >= USAGE_ROW_CAP,
