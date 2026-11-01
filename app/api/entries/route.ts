@@ -120,7 +120,26 @@ async function readOrPublishInner(request: Request) {
     limit,
     peek: meta,
   });
-  if (!meta) return json({ entries: page });
+  if (!meta) {
+    // Body unchanged. Headers say what was applied, so a capped read is visible
+    // without meta=1 (count == limit_applied -> there may be more).
+    const applied = Math.min(Math.max(limit || 50, 1), 100);
+    const res = json({ entries: page });
+    res.headers.set('x-limit-applied', String(applied));
+    res.headers.set(
+      'x-limit-requested',
+      Number.isFinite(limit) && limit ? String(limit) : '',
+    );
+    res.headers.set(
+      'x-possibly-truncated',
+      page.length >= applied ? 'true' : 'false',
+    );
+    res.headers.set(
+      'x-paging',
+      'add meta=1 for has_more, next_before, next_cursor',
+    );
+    return res;
+  }
   const entries = [...page];
   const hasMore = page.hasMore;
   return json({
