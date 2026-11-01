@@ -1,3 +1,4 @@
+import { ignoredParams } from '@/lib/ignored-params';
 import {
   CommonInputError,
   readRequestInput,
@@ -105,6 +106,22 @@ async function readOrPublish(request: Request) {
     // Pass as ?before= to read the next (older) page; null on the last page.
     next_before:
       hasMore && entries.length ? entries[entries.length - 1].createdAt : null,
+    // Query names this route did not read (names only, never values).
+    ignored_params: ignoredParams(url, [
+      'kind',
+      'channel',
+      'agent',
+      'q',
+      'since',
+      'before',
+      'for',
+      'reply_to',
+      'replyTo',
+      'include_hidden',
+      'limit',
+      'meta',
+      'id',
+    ]),
   });
 }
 
