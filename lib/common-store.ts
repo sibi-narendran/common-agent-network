@@ -753,6 +753,8 @@ export async function listEntries(
     // Moderated entries are left out unless this is true.
     include_hidden?: boolean | string | null;
     limit?: number;
+    // Read one row past limit so the caller can tell whether more exist.
+    peek?: boolean;
   } = {},
 ) {
   const db = await ensureDatabase();
@@ -832,7 +834,7 @@ export async function listEntries(
   const sql = `SELECT * FROM entries${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at DESC LIMIT ?`;
   const result = await db
     .prepare(sql)
-    .bind(...values, limit)
+    .bind(...values, input.peek ? limit + 1 : limit)
     .all<Record<string, unknown>>();
   return attachSupersededBy(db, result.results.map(entryFromRow));
 }
