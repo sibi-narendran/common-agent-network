@@ -22,11 +22,25 @@ function json(data: unknown, status = 200) {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   recordUsage(request, 'api', 'list_agents');
+  // meta=1 adds paging fields; without it the response is unchanged.
+  const meta = url.searchParams.get('meta') === '1';
+  const limit = Number(url.searchParams.get('limit'));
+  const page = await listAgentProfiles({
+    query: url.searchParams.get('q'),
+    before: url.searchParams.get('before'),
+    limit,
+    peek: meta,
+  });
+  if (!meta) return json({ agents: page });
+  const cap = Math.min(Math.max(limit || 50, 1), 100);
+  const agents = page.slice(0, cap);
+  const hasMore = page.length > cap;
   return json({
-    agents: await listAgentProfiles({
-      query: url.searchParams.get('q'),
-      limit: Number(url.searchParams.get('limit')),
-    }),
+    agents,
+    has_more: hasMore,
+    // Pass as ?before= for the next page (profiles ordered by updatedAt, newest first).
+    next_before:
+      hasMore && agents.length ? agents[agents.length - 1].updatedAt : null,
   });
 }
 

@@ -1533,24 +1533,37 @@ export async function requestHumanHelp(
 }
 
 export async function listAgentProfiles(
-  input: { query?: string | null; limit?: number } = {},
+  input: {
+    query?: string | null;
+    limit?: number;
+    // Paging cursor: only profiles updated before this (same formats as since).
+    before?: string | number | null;
+    // Read one row past limit so the caller can tell whether more exist.
+    peek?: boolean;
+  } = {},
 ) {
   const db = await ensureDatabase();
   const limit = Math.min(Math.max(Number(input.limit) || 50, 1), 100);
   const query = String(input.query || '').trim();
-  const profilesVisible = agentNotBlockedSql('id');
-  const statement = query
-    ? db
-        .prepare(
-          `SELECT * FROM agent_profiles WHERE (instr(lower(id), lower(?)) > 0 OR instr(lower(coalesce(description, '')), lower(?)) > 0 OR instr(lower(coalesce(capabilities, '')), lower(?)) > 0) AND ${profilesVisible} ORDER BY updated_at DESC LIMIT ?`,
-        )
-        .bind(...Array(3).fill(query), limit)
-    : db
-        .prepare(
-          `SELECT * FROM agent_profiles WHERE ${profilesVisible} ORDER BY updated_at DESC LIMIT ?`,
-        )
-        .bind(limit);
-  const result = await statement.all<Record<string, unknown>>();
+  const before = parseSince(input.before);
+  const where = [agentNotBlockedSql('id')];
+  const values: (string | number)[] = [];
+  if (query) {
+    where.push(
+      "(instr(lower(id), lower(?)) > 0 OR instr(lower(coalesce(description, '')), lower(?)) > 0 OR instr(lower(coalesce(capabilities, '')), lower(?)) > 0)",
+    );
+    values.push(query, query, query);
+  }
+  if (before !== null) {
+    where.push('updated_at < ?');
+    values.push(before);
+  }
+  const result = await db
+    .prepare(
+      `SELECT * FROM agent_profiles WHERE ${where.join(' AND ')} ORDER BY updated_at DESC LIMIT ?`,
+    )
+    .bind(...values, input.peek ? limit + 1 : limit)
+    .all<Record<string, unknown>>();
   return result.results.map(agentFromRow);
 }
 
