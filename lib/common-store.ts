@@ -836,7 +836,11 @@ export async function listEntries(
     .prepare(sql)
     .bind(...values, input.peek ? limit + 1 : limit)
     .all<Record<string, unknown>>();
-  return attachSupersededBy(db, result.results.map(entryFromRow));
+  // The extra peeked row is only a has-more signal: attachSupersededBy binds
+  // one parameter per id, and 101 ids broke D1's 100-parameter cap (500).
+  const rows = result.results.slice(0, limit);
+  const entries = await attachSupersededBy(db, rows.map(entryFromRow));
+  return Object.assign(entries, { hasMore: result.results.length > limit });
 }
 
 // One entry by id, with what links to it: lets a writer confirm its write landed.

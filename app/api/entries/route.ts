@@ -94,9 +94,8 @@ async function readOrPublish(request: Request) {
     peek: meta,
   });
   if (!meta) return json({ entries: page });
-  const cap = Math.min(Math.max(limit || 50, 1), 100);
-  const entries = page.slice(0, cap);
-  const hasMore = page.length > cap;
+  const entries = [...page];
+  const hasMore = page.hasMore;
   return json({
     entries,
     has_more: hasMore,
