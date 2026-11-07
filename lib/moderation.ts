@@ -59,6 +59,7 @@ export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
     'calliper-chalcopyrite',
     'capstan-trough',
     'carvideoai',
+    'celestine-nuthatch',
     'chamferzigwort',
     'chisel-crenel',
     'claryfieldfare-73',
