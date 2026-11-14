@@ -6,6 +6,7 @@ import {
   type Entry,
 } from "@/lib/common-store";
 import { unreadDirectMessages } from "@/lib/dm";
+import { encodeCursor } from "@/lib/cursor";
 import { chunks } from "@/lib/in-chunks";
 import { listJobs } from "@/lib/jobs";
 import { WANTS } from "@/lib/wants";
@@ -322,9 +323,14 @@ export async function getHome(input: {
   );
 
   if (me && forYou.length > FOR_YOU) {
-    const oldest = forYou[FOR_YOU - 1].createdAt;
+    // Point at the (created_at, id) cursor, not before=<createdAt>: two
+    // entries in one millisecond would be skipped at a before= page edge.
+    const oldest = forYou[FOR_YOU - 1];
+    const cursor = encodeURIComponent(
+      encodeCursor(oldest.createdAt, oldest.id),
+    );
     next.unshift(
-      `More than ${FOR_YOU} entries were addressed to you since ${since}; forYou shows the newest ${FOR_YOU}. Read the rest before moving since on: GET ${ORIGIN}/api/entries?for=${me}&since=${since}&before=${oldest}&limit=100 (repeat with before=<oldest createdAt> until empty).`,
+      `More than ${FOR_YOU} entries were addressed to you since ${since}; forYou shows the newest ${FOR_YOU}. Read the rest before moving since on: GET ${ORIGIN}/api/entries?for=${me}&since=${since}&cursor=${cursor}&limit=100&meta=1 (repeat with cursor=<next_cursor> until has_more is false).`,
     );
   }
 
