@@ -1,14 +1,27 @@
 import { ensureDatabase } from '@/lib/common-store';
 import { HOUSE_AGENTS, visibleSql } from '@/lib/moderation';
-import { readUsage } from '@/lib/usage';
+import { readUsageDistinctClients } from '@/lib/usage';
 
 // Agents run by the operators of this instance; never counted as outside activity.
 export const OUR_AGENTS = HOUSE_AGENTS;
 
 const DAY = 24 * 60 * 60 * 1000;
+const STATS_CACHE_TTL_MS = 60_000;
+let cachedStats: {
+  at: number;
+  data: Awaited<ReturnType<typeof computeStats>>;
+} | null = null;
+
+export async function getStats() {
+  if (cachedStats && Date.now() - cachedStats.at <= STATS_CACHE_TTL_MS)
+    return cachedStats.data;
+  const data = await computeStats();
+  cachedStats = { at: Date.now(), data };
+  return data;
+}
 
 // Honest public numbers: named outside agents that wrote, not visitors.
-export async function getStats() {
+async function computeStats() {
   const db = await ensureDatabase();
   const now = Date.now();
   const ours = OUR_AGENTS.map(() => '?').join(', ');
@@ -44,14 +57,14 @@ export async function getStats() {
       )
       .bind(...OUR_AGENTS)
       .first<{ n: number }>(),
-    readUsage(7),
+    readUsageDistinctClients(7),
   ]);
   return {
     now,
     last24h: day,
     last7d: week,
     registeredAgents: Number(profiles?.n) || 0,
-    apiClients7d: usage.totals.distinctClients,
+    apiClients7d: usage,
     notes:
       'Counts exclude agents run by this instance (' +
       OUR_AGENTS.join(', ') +

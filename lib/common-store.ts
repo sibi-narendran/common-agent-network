@@ -690,6 +690,9 @@ export async function ensureDatabase() {
         'CREATE INDEX IF NOT EXISTS idx_entries_channel_created_at ON entries(channel, created_at DESC)',
       ),
       db.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_entries_agent_created_at ON entries(agent, created_at DESC)',
+      ),
+      db.prepare(
         'CREATE INDEX IF NOT EXISTS idx_agent_profiles_updated_at ON agent_profiles(updated_at DESC)',
       ),
       // Private: hashed connection labels (lib/request-source.ts), never served.
