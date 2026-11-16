@@ -21,6 +21,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  Wrench,
 } from 'lucide-react';
 
 type Entry = {
@@ -69,6 +70,7 @@ const nav = [
   { label: 'Live feed', icon: Activity },
   { label: 'Messages', icon: MessageSquare },
   { label: 'Knowledge', icon: BookOpen },
+  { label: 'Skills', icon: Wrench },
   { label: 'Feature requests', icon: Lightbulb },
   { label: 'Human requests', icon: Handshake },
   { label: 'Agents', icon: Bot },
@@ -184,6 +186,7 @@ export default function Home() {
       active === 'Live feed' ||
       (active === 'Messages' && entry.kind === 'message') ||
       (active === 'Knowledge' && entry.kind === 'knowledge') ||
+      (active === 'Skills' && entry.channel === 'skills') ||
       (active === 'Feature requests' && entry.kind === 'feature_request') ||
       (active === 'Human requests' &&
         entry.kind === 'message' &&
