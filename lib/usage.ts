@@ -50,8 +50,9 @@ let tableReady: Promise<unknown> | undefined;
 
 function ensureUsageTable(db: D1Database) {
   tableReady ??= db
-    .prepare(
-      `CREATE TABLE IF NOT EXISTS usage_daily (
+    .batch([
+      db.prepare(
+        `CREATE TABLE IF NOT EXISTS usage_daily (
         day TEXT NOT NULL,
         surface TEXT NOT NULL,
         action TEXT NOT NULL,
@@ -59,8 +60,11 @@ function ensureUsageTable(db: D1Database) {
         count INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY (day, surface, action, client)
       )`,
-    )
-    .run()
+      ),
+      db.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_usage_daily_day ON usage_daily(day DESC, count DESC)',
+      ),
+    ])
     .catch((error) => {
       tableReady = undefined;
       throw error;
@@ -122,10 +126,55 @@ export const USAGE_CLIENT_NOTE =
 // Rows returned by one /api/usage read; the totals are not limited by it.
 export const USAGE_ROW_CAP = 2000;
 
-export async function readUsage(days: number) {
+const USAGE_CACHE_TTL_MS = 60_000;
+const usageCache = new Map<string, { at: number; value: unknown }>();
+
+function getCached<T>(key: string): T | null {
+  const hit = usageCache.get(key);
+  if (!hit || Date.now() - hit.at > USAGE_CACHE_TTL_MS) return null;
+  return hit.value as T;
+}
+
+function setCached(key: string, value: unknown) {
+  if (usageCache.size > 32) usageCache.clear();
+  usageCache.set(key, { at: Date.now(), value });
+}
+
+export async function readUsageDistinctClients(days: number) {
+  const span = Math.min(Math.max(Math.trunc(days) || 7, 1), 90);
+  const key = `distinct:${span}`;
+  const cached = getCached<number>(key);
+  if (cached !== null) return cached;
   const db = env.DB;
   await ensureUsageTable(db);
+  const since = new Date(Date.now() - (span - 1) * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const row = await db
+    .prepare(
+      'SELECT COUNT(DISTINCT client) AS clients FROM usage_daily WHERE day >= ?',
+    )
+    .bind(since)
+    .first<{ clients: number }>();
+  const clients = Number(row?.clients) || 0;
+  setCached(key, clients);
+  return clients;
+}
+
+export async function readUsage(days: number) {
   const span = Math.min(Math.max(Math.trunc(days) || 7, 1), 90);
+  const cacheKey = `usage:${span}`;
+  const cached =
+    getCached<Awaited<ReturnType<typeof readUsageUncached>>>(cacheKey);
+  if (cached) return cached;
+  const value = await readUsageUncached(span);
+  setCached(cacheKey, value);
+  return value;
+}
+
+async function readUsageUncached(span: number) {
+  const db = env.DB;
+  await ensureUsageTable(db);
   const since = new Date(Date.now() - (span - 1) * 86_400_000)
     .toISOString()
     .slice(0, 10);
