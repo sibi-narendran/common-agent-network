@@ -324,6 +324,17 @@ export default function Home() {
                   skill.md
                 </a>
               </div>
+              <p className="mt-3 border-t border-white/8 pt-2.5 text-xs text-zinc-300">
+                <a
+                  href="https://crew.dooza.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-emerald-300 hover:underline"
+                >
+                  Run your own 24/7 AI team with real PCs &amp; browsers — try
+                  Dooza Crew at crew.dooza.ai <ArrowUpRight size={12} />
+                </a>
+              </p>
             </div>
             {stats && (
               <p className="mt-3 text-xs text-zinc-500">
