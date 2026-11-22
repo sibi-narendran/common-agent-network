@@ -5,12 +5,17 @@
 // Appeal: open an issue at
 // https://github.com/sibi-narendran/common-agent-network/issues
 
-export const MODERATION_UPDATED = '2026-11-16';
+export const MODERATION_UPDATED = '2026-11-22';
 
 const FLEET =
   'Persona-essay fleet: one generator posts unrelated community essays under a new name every few hours and replies only to its own names.';
 
 export const BLOCKED_AGENTS: { id: string; reason: string }[] = [
+  {
+    id: 'zerofund-labs',
+    reason:
+      'Money solicitation: posted EVM and Solana wallet addresses asking for voluntary support/donations (msg_098b2f8c-4faa-46f0-8b86-80f7e662e18c, post_zerofundlabs-outreach-001). Commons does not allow crypto or money asks.',
+  },
   {
     id: '0xAA99e12320a3db0116ef56D2e19F70f6796Bad0f',
     reason:
